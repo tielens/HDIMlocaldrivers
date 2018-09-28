@@ -1,0 +1,893 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+---
+title: "ch2 4th corner September 2018"
+output: html_document
+---
+
+<br>
+<br>
+
+##Introduction
+
+<br>
+
+Host plant genotype and phenotype influence arthropod community composition. They influence fitness, can mediate competition, predation and host-parasite interactions. Plant size, leaf chemistry, defense compounds, trichome density etc all affect species in different ways. However, it is hard to pin down general principles in how host plant characteristics affect herbivores across species 
+Insect traits can be used to provide a mechanistic connection between species and environment. Insect traits have increasingly been used to understand insect response to characteristics of landscape and understand community composition.
+
+<br>
+
+I set out with the following objectives:
+
+
+##### (i) How do herbivore communities respond to phenotypic variation?
+##### (ii) Which plant traits account for herbivore community responses to host-plant phenotype?
+##### (iii) Which insect traits account for herbivore community responses to host-plant phenotype
+
+
+
+<br>
+<br>
+
+
+```{r Load_data&packages, echo=FALSE, warning=FALSE, message=FALSE}
+rm(list=ls())
+
+
+library(ggplot2)
+library(scales)
+library(lattice)
+library(vegan)
+library(iNEXT)
+library(plyr)
+library(mvabund)
+
+#try species by site dataset, including leps and coleoptera
+setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
+hem<-read.table("hem.sep18.csv", header=TRUE, sep="")
+
+##load other datasets 
+setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
+env<- read.table("env site july16.csv", header=TRUE, sep=",")
+setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
+traits<-read.table("trait species july16new.csv", header=T, sep=",")
+setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
+leaftraits<-read.table("leaf traits july16.csv", header=TRUE, sep=",")
+
+
+# Subset to only four sites, for both years
+env.both<-env[env$site!="ERY",]
+env.both<-env.both[env.both$site!=c("TPR"),]
+env.both<-env.both[env.both$site!=c("KAIO"),]
+env.both<-env.both[env.both$site!=c("THU"),]
+env.both<-env.both[env.both$site!=c("LH"),]
+env.both<-env.both[env.both$site!=c("LY"),]
+env.both<-env.both[env.both$site!=c("L65"),]
+env.both<-env.both[env.both$site!=c("KOHY"),]
+env.both<-env.both[env.both$site!=c("KOHO"),]
+env.both<-env.both[env.both$island=="Hawaii",]
+
+# create env data for 2014
+env.2014<-env.both[env.both$sampleyear=="2014",]
+
+# create hem data
+hem.both<-hem[rownames(hem)%in%env.both$vialID,]
+hem.2014<-hem[rownames(hem)%in%env.2014$vialID,]
+
+## Create traits data 
+#traits.both<-traits[rownames(traits)%in%colnames(hem.both),]
+traits<-traits[traits$spec_code%in%colnames(hem.2014),]
+
+## Create leaftraits data (2014 only)
+leaftraits<-leaftraits[leaftraits$vialID%in%env.2014$vialID,]
+
+
+# exclude species that don't occur in our four sites
+hem.both<-hem.both[,colSums(hem.both)>0]
+hem.2014<-hem.2014[,colSums(hem.2014)>0]
+
+# remove predators
+traits<- traits[traits$spec_code!="NAB_OSC",]
+traits<- traits[traits$spec_code!="COC_SP",]
+traits<- traits[traits$spec_code!="PHI_SPU",]
+#traits.both<-traits[traits$spec_code%in%colnames(hem.both),]    ### only need to do this for 2014 data? because used for fourth corner mostly?
+
+# exclude species for which we don't have trait data. 
+hem.both<-hem.both[ ,which( colnames(hem.both) %in% traits$spec_code )]
+hem.2014<-hem.2014[ ,which( colnames(hem.2014) %in% traits$spec_code )]
+
+traits<-traits[traits$spec_code%in%colnames(hem.2014),]
+rownames(traits)<-traits$spec_code
+traits<-traits[,-c(1)]
+
+## There are NA's in the dataset. Remove.
+leaftraits<-na.omit(leaftraits)
+
+#select subset traits to prevent collinearity
+leaftraits<-merge(leaftraits, env[,c(1,10)], by="vialID")
+rownames(leaftraits)<-leaftraits$vialID
+leaftraits<-leaftraits[,c(3,4,6,7,10,11)]
+colnames(leaftraits)<-c("percN", "percP", "meanSLA", "meanWatercontent", "CN", "morphotype")
+
+
+
+
+# set different level of morphotype as intercept
+leaftraits$morphotype<-factor(leaftraits$morphotype, levels=c("H", "G", "P"))
+
+#env<-env[env$vialID %in% rownames(hem),]
+#env$morphotype<-factor(env$morphotype,levels(env$morphotype))
+
+################
+#  make frequency matrix of species by site; ie instead of absolute numbers put in numbers proportionate to total site abundance. 
+# prob with frequency is gives diff picture from fourth corner absolute numbers
+
+#hem.freq<-hem.new/rowSums(hem.new)
+#rownames(hem.freq)<-rownames(hem.new)
+
+
+################
+
+#hem.ero<-hem[env$site=="ERO",]
+#hem.kaiy<-hem[env$site=="KAIY",]
+#hem.olaa<-hem[env$site=="OLAA",]
+#hem.ali<-hem[env$site=="ALI",]
+
+
+##################
+
+```
+<br>
+
+## Results
+
+<br>
+<br>
+
+#### Some context: Richness across chronosequence
+<br>
+```{r describe_insect_community, echo=FALSE, warning=FALSE}
+ord<-c( "ERO",  "KAIY", "OLAA", "ALI")
+
+plot(ChaoRichness(as.data.frame(t(hem.both)), datatype = "abundance")[,2]~factor(env.both$site, as.ordered(ord)),  ylab="Estimated species richness (chao)", xlab="sites (ordered by substrate age)")
+plot(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~factor(env.both$site, as.ordered(ord)),  ylab="Exp Estimated Shannon (hill 1)", xlab="sites (ordered by substrate age)")
+plot(1/(1-ChaoSimpson(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~factor(env.both$site, as.ordered(ord)),  ylab="1/1-Estimated Simpson (hill 2)", xlab="sites (ordered by substrate age)")
+
+```
+
+<br>
+
+#### (i) How do herbivore communities respond to phenotypic variation?
+
+<br>
+
+```{r}
+
+p<-metaMDS(hem.both, distance="bray", k=2, trymax=100)
+ordiplot(p,type="n")
+orditorp(p,display="species",col="red",air=0.01)
+orditorp(p,display="sites",cex=1.25,air=0.01)
+
+ordiplot(p,type="n")
+orditorp(p,display="species",col="red",air=0.01)
+orditorp(p,display="sites",pch=19, col="blue", label=F)
+ordiellipse(p,groups=env.both$site,draw="polygon",col="grey90",label=T)
+```
+<br>
+
+There are differences in species richness as well as species composition across sites. Diversity is highest at the high productivity sites midway the Big Island chronosequence. Species composition varies between sites, though many species are shared in common.  
+<br>
+
+
+#### (ii) Which plant traits account for herbivore community responses to host-plant phenotype?
+
+
+
+<br>
+
+```{r Cor}
+
+
+adonis(hem.new~leaftraits$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP, by="margin")
+
+
+adonis(hem.new~env.subset$tree.height+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$percN+env.subset$tree.height+env.subset$site, by="margin")
+
+
+
+mod.leaf<-cca(hem.new~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+leaftraits$percP)
+mod.leaf.age<-cca(hem.new~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.subset$age)
+mod.leaf.tree<-cca(hem.new~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.subset$tree.height)
+mod.leaf.age.site<-cca(hem.new~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.subset$tree.height+env.subset$age+env.subset$site)
+mod.leaf.site<-cca(hem.new~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.subset$site+leaftraits$meanWatercontent+leaftraits$percP)
+
+# compare contribution of different predictors
+mod.leaf
+mod.leaf.age
+mod.leaf.tree
+mod.leaf.site
+mod.leaf.age.site
+
+
+plot(mod.leaf, type="none")
+points(mod.leaf, display="sites")
+text(mod.leaf, display="species")
+
+anova(mod.leaf.age.site, by = "margin", step=200 )
+
+
+
+ordiplot(mod.leaf)
+ordiplot(mod.leaf.age)
+
+# spread into hybrid versus pubescent/glabrous is explained by SLA, tree height Spread between pubescent and glabrous explained by age 
+
+
+
+
+plot(mod.leaf.age.site, type="none")
+points(mod.leaf.age.site, display="sites")
+#text(mod, display="species")
+plot(envfit(mod.leaf.age.site, leaftraits[, c(1,3,4)]))
+
+
+
+vare.cca <- cca(decostand(hem.new, "total") ~ ., data = leaftraits[,c(1,6)]) 
+
+plot(vare.cca, display = "sites", scaling = 3, type="points")
+text(vare.cca, scaling = 3, display = "bp", pch=4) 
+text(vare.cca, display = "species", scaling = 3, col="red")
+
+```
+
+<br>
+
+#### (iii) Which insect traits account for herbivore community responses to host-plant phenotype
+<br>
+
+ What are the frequencies of feeding guilds and other insect traits as a function of host plant traits?
+
+<br>
+
+##### Feeding guild per morphotype
+
+<br>
+```{r Trait_by_trait, echo=FALSE}
+# use hem.freq
+
+# next figure out which rows have H morphotype, and then sum all freq for which guild is seed and morpho is H
+leaftraits$vialID<-rownames(leaftraits)
+leaftraits<-leaftraits[order((leaftraits$vialID)),]
+hem.2014$vialID<-rownames(hem.2014)
+hem.2014<-hem.2014[order(hem.2014$vialID),]
+
+
+leaftraits<-leaftraits[order((leaftraits$vialID)),]
+hem.2014$vialID<-rownames(hem.2014)
+hem.2014<-hem.2014[order(hem.2014$vialID),]
+hem.2014<-hem.2014[,-39]
+
+temp<-data.frame(NA, ncol=3, nrow=9)
+
+temp[1,1]<-
+  mean(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$feeding_guild=="seed"] ])
+temp[2,1]<-
+mean(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$feeding_guild=="seed"] ])
+temp[3,1]<-
+mean(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$feeding_guild=="seed"] ])
+
+temp[4,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$feeding_guild=="sap feeder"] ]))
+temp[5,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$feeding_guild=="sap feeder"] ]))
+temp[6,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$feeding_guild=="sap feeder"] ]))
+
+temp[7,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$feeding_guild=="chewer"] ]))
+temp[8,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$feeding_guild=="chewer"] ]))
+temp[9,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$feeding_guild=="chewer"] ]))
+
+temp[10,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$feeding_guild=="gall"] ]))
+temp[11,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$feeding_guild=="gall"] ]))
+temp[12,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$feeding_guild=="gall"] ]))
+
+temp[,2]<-"seed"
+temp[c(4,5,6),2]<-"sap feeder"
+temp[c(7,8,9),2]<-"chewer"
+temp[c(10,11,12),2]<-"gall"
+
+temp[c(1,4,7,10),3]<-"H"
+temp[c(2,5,8,11),3]<-"P"
+temp[c(3,6,9,12),3]<-"G"
+
+#temp<-as.data.frame(temp)
+colnames(temp)<-c("freq", "feeding.guild", "morphotype")
+#temp$freq<-as.numeric(temp$freq)
+
+
+
+fig.alt0<-ggplot(data=temp, aes(x=(morphotype), y=freq, fill=feeding.guild, na.omit=TRUE)) +
+  geom_bar(stat="identity", width=0.2)+
+  theme(axis.text.x=element_text(hjust=1,vjust=0.5))+
+  ylab("Abundance of individuals in each feeding guild") +
+  xlab("tree morphotype")
+
+
+fig.alt0
+```
+<br>
+
+Frequency of different feeding guilds differs between tree morphotypes. Glabrous morphotypes are dominated by sap feeders and leaf chewers, and few galls. Pubescent morphotypes have higher proportions of gall makers and seed feeders.  
+
+
+
+
+<br>
+
+##### Location nymph
+<br>
+```{r location_nymph, echo=FALSE}
+
+nymph.morpho<-data.frame(NA, ncol=2, nrow=6)
+
+nymph.morpho[1,1]<-
+  mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$location_nymph=="free living"] ]))
+nymph.morpho[2,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$location_nymph=="free living"] ]))
+nymph.morpho[3,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$location_nymph=="free living"] ]))
+
+
+nymph.morpho[4,1]<-mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$location_nymph=="subterranean"] ]))
+nymph.morpho[5,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$location_nymph=="subterranean"] ]))
+nymph.morpho[6,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$location_nymph=="subterranean"] ]))
+
+nymph.morpho[7,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$location_nymph=="gall"] ]))
+nymph.morpho[8,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$location_nymph=="gall"] ]))
+nymph.morpho[9,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$location_nymph=="gall"] ]))
+
+nymph.morpho[10,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$location_nymph=="shelter"] ]))
+nymph.morpho[11,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$location_nymph=="shelter"] ]))
+nymph.morpho[12,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$location_nymph=="shelter"] ]))
+
+
+
+nymph.morpho[,2]<-"free living"
+nymph.morpho[c(4,5,6),2]<-"subterranean"
+nymph.morpho[c(7,8,9),2]<-"gall"
+nymph.morpho[c(10,11,12),2]<-"shelter"
+
+nymph.morpho[c(1,4,7,10),3]<-"H"
+nymph.morpho[c(2,5,8,11),3]<-"P"
+nymph.morpho[c(3,6,9,12),3]<-"G"
+
+#nymph.morpho<-as.data.frame(temp)
+colnames(nymph.morpho)<-c("freq", "location.nymph", "morphotype")
+
+fig.alt<-ggplot(data=nymph.morpho, aes(x=(morphotype), y=freq, fill=location.nymph, na.omit=TRUE)) +
+  geom_bar(stat="identity", width=0.2)+
+  theme(axis.text.x=element_text(hjust=1,vjust=0.5))+
+  ylab("Abundance of individuals for each location nymph") +
+  xlab("tree morphotype")
+
+fig.alt
+```
+<br>
+Glabrous morphotype trees are dominated by free living nymphs. Hybrid morphotypes have higher proportions gall makers. Pubescent morphotype trees have predominately free living juveniles with ~20% gall makers, highest proportion galls of all morphotypes. Hyposmocoma (only taxa coded as 'shelter') occur almost exclusively on glabrous morphotypes. Cixiidae (subterranean) are found predominately on pubescent morphotypes. 
+
+<br>
+##### Specialist/generalist
+<br>
+```{r specialization, echo=FALSE}
+special<-data.frame(NA, ncol=2, nrow=6)
+
+special[1,1]<-
+  mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$polyphagy=="specialist"] ]))
+special[2,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$polyphagy=="specialist"] ]))
+special[3,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$polyphagy=="specialist"] ]))
+
+special[4,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+special[5,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+special[6,1]<-
+mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+
+
+special[,2]<-"specialist"
+special[c(4,5,6),2]<-"generalist"
+
+
+special[c(1,4),3]<-"H"
+special[c(2,5),3]<-"P"
+special[c(3,6),3]<-"G"
+
+colnames(special)<-c("freq", "specialism", "morphotype")
+
+#######
+########
+#special<-data.frame(NA, ncol=2, nrow=6)
+
+#special[1,1]<-
+#  mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  #,rownames(traits)[traits$polyphagy=="specialist"] ]))
+#special[2,1]<-
+#mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$polyphagy=="specialist"] ]))
+#special[3,1]<-
+#mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$polyphagy=="specialist"] ]))
+
+#special[4,1]<-
+#mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="H"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+#special[5,1]<-
+#mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="P"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+#special[6,1]<-
+#mean(rowSums(hem.2014[ rownames(hem.2014)[leaftraits$morphotype=="G"]  ,rownames(traits)[traits$polyphagy=="generalist"] ]))
+
+
+#special[,2]<-"specialist"
+#special[c(4,5,6),2]<-"generalist"
+#
+#######
+######
+
+fig.alt2<-ggplot(data=special, aes(x=(morphotype), y=freq, fill=specialism, na.omit=TRUE)) +
+  geom_bar(stat="identity", width=0.2)+
+  theme(axis.text.x=element_text(hjust=1,vjust=0.5))+
+  ylab("Abundance of individuals for each degree of specialization") +
+  xlab("tree morphotype")
+
+fig.alt2
+
+
+```
+<br>
+
+For glabrous and hybrid morphotype trees, one third of the community are generalists, and two thirds are specialists. For pubescent morphotype trees, communities have even higher proportions specialists.
+
+<br>
+
+##### Feeding guilds as a function of leaf nitrogen
+
+<br>
+```{r feeding_guild_N, echo=FALSE, warning=FALSE}
+######
+#How do proportions of each feeding guild vary across leaf nitrogen content?
+
+#hem.freq<-hem.freq[,-27]
+
+
+#guilds.per.site<-data.frame("site"=1:55)
+#subsetted.sap<-hem.new[,colnames(hem.new)[traits$feeding_guild=="sap feeder"]] 
+#guilds.per.site[,1]<-rowSums(subsetted.sap)
+#guilds.per.site[,2]<-rownames(hem.new)
+#guilds.per.site[,3]<-"sap"
+#guilds.per.site2<-data.frame("site"=1:55)
+#subsetted.chewer<-hem.new[,colnames(hem.new)[traits$feeding_guild=="chewer"]] 
+#guilds.per.site2[,1]<-rowSums(subsetted.chewer)
+#guilds.per.site2[,2]<-rownames(hem.new)
+#guilds.per.site2[,3]<-"chewer"
+#guilds.per.site3<-data.frame("site"=1:55)
+#guilds.per.site3[,1]<-hem.new[,colnames(hem.new)[traits$feeding_guild=="seed"]] 
+#guilds.per.site3[,2]<-rownames(hem.new)
+#guilds.per.site3[,3]<-"seed"
+#guilds.per.site4<-data.frame("site"=1:55)
+#guilds.per.site4[,1]<-hem.new[,colnames(hem.new)[traits$feeding_guild=="gall"]] 
+#guilds.per.site4[,2]<-rownames(hem.new)
+#guilds.per.site4[,3]<-"gall"
+#guilds<-rbind(guilds.per.site,guilds.per.site2, guilds.per.site3, guilds.per.site4)
+#colnames(guilds)<-c("abundance", "vialID", "feeding_guild")
+#guilds2<-merge(guilds, leaftraits[,c(1,7)])
+
+
+
+
+
+
+#ggplot(guilds2, aes(x=percN, y=abundance+1, color=feeding_guild)) +
+#    geom_point(shape=1) +
+#  scale_y_log10("Abundance (log)")+
+#    scale_colour_hue(l=50) + # Use a slightly darker palette than normal
+#    geom_smooth(method=lm, se=FALSE) 
+
+
+
+#anova(lm(abundance[feeding_guild=="chewer"]~percN[feeding_guild=="chewer"],data=guilds2))
+#anova(lm(abundance[feeding_guild=="sap"]~percN[feeding_guild=="sap"],data=guilds2))
+#anova(lm(abundance[feeding_guild=="seed"]~percN[feeding_guild=="seed"],data=guilds2))
+#anova(lm(abundance[feeding_guild=="gall"]~percN[feeding_guild=="gall"],data=guilds2))
+
+# restore leaftraits to not have vialID
+leaftraits<-leaftraits[,-7]
+```
+<br>
+Arthropod abundance per feeding guild varies across leaf nitrogen content. Leaf chewers increase in abundance with nitrogen content, and this increase is significant. Abundance of sap feeders also increases with percN, but the spread is large and this increase is not significant. Abundance of gall makers is not correlated with nitrogen content, and abundance of seed feeders decreases non-significantly with foliar nitrogen content.
+
+
+<br>
+
+
+<br>
+
+Are communities distinctly different between different morphotype trees within the same site?
+
+<br>
+
+```{r}
+
+par(mfrow=c(2,2))
+
+moment<-metaMDS(hem.ero, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Escape road old flow")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="ERO",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="ERO",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="ERO",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+moment<-metaMDS(hem.kaiy, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Kaiholena Young flow")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="KAIY",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="KAIY",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="KAIY",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+moment<-metaMDS(hem.ali, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Alili Springs")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="ALI",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="ALI",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="ALI",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+
+moment<-metaMDS(hem.olaa, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="HAVO Olaa")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="OLAA",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="OLAA",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="OLAA",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+
+adonis(hem.ali~env[env$site=="ALI",]$morphotype, by="margin")
+adonis(hem.kaiy~env[env$site=="KAIY",]$morphotype, by="margin")
+adonis(hem.ero~env[env$site=="ERO",]$morphotype, by="margin")
+adonis(hem.olaa~env[env$site=="OLAA",]$morphotype, by="margin")
+
+
+#############################
+
+
+
+ggplot(data=temp4, aes(x=site, y=morphN, fill=morphotype)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black")
+ggplot(data=temp4, aes(x=site, y=morphP, fill=morphotype)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black")
+ggplot(data=temp4, aes(x=site, y=morphSLA, fill=morphotype)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black")
+ggplot(data=temp4, aes(x=site, y=morphwater, fill=morphotype)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black")
+
+
+ggplot(data=leaftraits, aes(x=site, y=percN, color=morphotype)) +
+    geom_point()
+ggplot(data=leaftraits, aes(x=site, y=percP, color=morphotype)) +
+    geom_point()
+ggplot(data=leaftraits, aes(x=site, y=meanSLA, color=morphotype)) +
+    geom_point()
+ggplot(data=leaftraits, aes(x=site, y=meanWatercontent, color=morphotype)) +
+    geom_point()
+
+### perc N
+
+anova(lm(leaftraits$percN~leaftraits$morphotype*leaftraits$site))
+TukeyHSD(aov(leaftraits$percN~leaftraits$morphotype*leaftraits$site))
+
+anova(lm(leaftraits$percN~leaftraits$site))
+TukeyHSD(aov(leaftraits$percN~leaftraits$site))
+
+### perc P
+
+anova(lm(leaftraits$percP~leaftraits$morphotype))
+TukeyHSD(aov(leaftraits$percP~leaftraits$morphotype))
+
+anova(lm(leaftraits$percP~leaftraits$site))
+TukeyHSD(aov(leaftraits$percP~leaftraits$site))
+
+
+
+### mean SLA
+anova(lm(leaftraits$meanSLA~leaftraits$morphotype))
+TukeyHSD(aov(leaftraits$meanSLA~leaftraits$morphotype))
+
+anova(lm(leaftraits$meanSLA~leaftraits$site))
+TukeyHSD(aov(leaftraits$meanSLA~leaftraits$site))
+
+
+### mean water
+anova(lm(leaftraits$meanWatercontent~leaftraits$morphotype))
+TukeyHSD(aov(leaftraits$meanWatercontent~leaftraits$morphotype))
+
+anova(lm(leaftraits$meanWatercontent~leaftraits$site))
+TukeyHSD(aov(meanWatercontent$meanSLA~leaftraits$site))
+
+
+
+
+##
+
+adonis(hem[rownames(hem) %in% leaftraits$vialID,] ~  leaftraits$percN +leaftraits$percP+leaftraits$morphotype  + leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$site , by="terms")
+
+# phosphorus and morphotype are only sig when only/first term
+# mean SLA and mean water content are always sig no matter their placement
+# perc N significant unless after SLA and before water content
+```
+
+
+```{r}
+
+summary(lmer(ChaoRichness(as.data.frame(t(hem[rownames(hem) %in% temp5$vialID,])))[,2]~temp5$morphotype+temp5$percN+temp5$percP+temp5$meanSLA+temp5$meanWatercontent+(1|temp5$site)))
+
+summary(lmer(ChaoSimpson(as.data.frame(t(hem.comp)))[,2]~env.comp$morphotype+(1|env.comp$site)))
+
+
+summary(lmer(ChaoSimpson(as.data.frame(t(hem[rownames(hem) %in% temp5$vialID,])))[,2]~temp5$morphotype+(1|temp5$site)))
+
+adonis(hem.comp~env.comp$morphotype)
+
+summary(lmer(rowSums(hem[rownames(hem) %in% temp5$vialID,])~temp5$morphotype+(1|temp5$site)))
+summary(lmer(rowSums(hem[rownames(hem) %in% temp5$vialID,])~temp5$percN+(1|temp5$site)))
+summary(lmer(rowSums(hem[rownames(hem) %in% temp5$vialID,])~temp5$percP+(1|temp5$site)))
+summary(lmer(rowSums(hem[rownames(hem) %in% temp5$vialID,])~temp5$meanSLA+(1|temp5$site)))
+summary(lmer(rowSums(hem[rownames(hem) %in% temp5$vialID,])~temp5$meanWatercontent+(1|temp5$site)))
+```
+
+<br>
+What does diversity and abundance look like across these sites with multiple phenotypes?
+```{r}
+plot(1/(1-ChaoSimpson(as.data.frame(t(hem.ero)) )[,2])~env[env$site=="ERO",]$morphotype)
+plot(1/(1-ChaoSimpson(as.data.frame(t(hem.kaiy)) )[,2])~env[env$site=="KAIY",]$morphotype)
+plot(1/(1-ChaoSimpson(as.data.frame(t(hem.olaa)) )[,2])~env[env$site=="OLAA",]$morphotype)
+plot(1/(1-ChaoSimpson(as.data.frame(t(hem.ali)) )[,2])~env[env$site=="ALI",]$morphotype)
+
+plot(ChaoRichness(as.data.frame(t(hem.ero)) )[,2]~env[env$site=="ERO",]$morphotype)
+plot(ChaoRichness(as.data.frame(t(hem.kaiy)) )[,2]~env[env$site=="KAIY",]$morphotype)
+plot(ChaoRichness(as.data.frame(t(hem.olaa)) )[,2]~env[env$site=="OLAA",]$morphotype)
+plot(ChaoRichness(as.data.frame(t(hem.ali)) )[,2]~env[env$site=="ALI",]$morphotype)
+
+plot(rowSums(hem.ero)~env[env$site=="ERO",]$morphotype)
+plot(rowSums(hem.kaiy)~env[env$site=="KAIY",]$morphotype)
+plot(rowSums(hem.olaa)~env[env$site=="OLAA",]$morphotype)
+plot(rowSums(hem.ali)~env[env$site=="ALI",]$morphotype)
+
+anova(lm(1/(1-ChaoSimpson(as.data.frame(t(hem.ero)) )[,2])~env[env$site=="ERO",]$morphotype))
+#anova(lm(1/(1-ChaoSimpson(as.data.frame(t(hem.kaiy)) )[,2])~env[env$site=="KAIY",]$morphotype))
+anova(lm(1/(1-ChaoSimpson(as.data.frame(t(hem.olaa)) )[,2])~env[env$site=="OLAA",]$morphotype))
+anova(lm(1/(1-ChaoSimpson(as.data.frame(t(hem.ali)) )[,2])~env[env$site=="ALI",]$morphotype))
+
+anova(lm(rowSums(hem.kaiy)~env[env$site=="KAIY",]$morphotype))
+# p<0.05
+anova(lm(rowSums(hem.olaa)~env[env$site=="OLAA",]$morphotype))
+# p<0.1
+
+
+# Across all 12 sites:
+env.both$morphotype<-factor(env.both$morphotype, levels=c("H", "G", "P"))
+plot(rowSums(hem.both)~env.both$morphotype, ylim=c(0,300), ylab="Abundance")
+anova(lm(rowSums(hem.big)~env.big$morphotype))
+TukeyHSD(aov(rowSums(hem.big)~env.big$morphotype))
+# p<0.05
+
+tem<-1-ChaoSimpson(as.data.frame(t(hem.both), na.rm=TRUE) )
+tem[10,2]<-1
+tem[65,2]<-1
+tem<-ifelse(tem[,2]==0,0,1/tem[,2])
+anova(lm(tem~env.both$morphotype))
+
+tem<-1/(1-ChaoShannon(as.data.frame(t(hem.both)) )[,2])
+tem[26]<-1 
+anova(lm(tem~env.both$morphotype))
+
+tem<-ChaoRichness(as.data.frame(t(hem.both)))[,2]
+anova(lm(tem~env.both$morphotype))
+plot(tem~env.both$morphotype, ylab="Species Richness")
+
+# richness does diff sig between morphotype, diversity shannon or simpson does not.
+# ie the difference between glabrous and hybrid and glabrous and pubescent is in rare species- glabrous has more rare species than the other two morphotypes, but once you weigh rare species less, there are no differences in diversity
+
+plot(diversity(hem.big)/log(specnumber(hem.big))~env.big$morphotype, ylab="Pielou's Evenness")
+```
+
+<br>
+
+
+```{r}
+mod.leaf.site<-cca(hem[rownames(hem)%in%temp5$vialID,]~temp5$percN+temp5$morphotype+temp5$meanSLA+temp5$meanWatercontent+temp5$percP+temp5$site)
+
+
+mod.leaf.site
+# 56% of variation constrained
+
+mod.leaf<-cca(hem[rownames(hem)%in%temp5$vialID,]~temp5$percN+temp5$morphotype+temp5$meanSLA+temp5$meanWatercontent+temp5$percP)
+mod.leaf
+
+
+plot(mod.leaf.site, type="none")
+points(mod.leaf.site, display="sites")
+text(mod.leaf.site, display="species")
+plot(envfit(mod.leaf.site, temp5[,c(3,4,5,6,8)]))
+
+anova(mod.leaf.site, by = "margin", step=200 )
+
+
+```
+
+<br>
+
+
+```{r}
+
+traits$feeding_guild<-factor(traits$feeding_guild)
+temp5<-temp5[order(rownames(temp5)),]
+hem.2014<-hem.2014[order(rownames(hem.2014)),]
+hem.2014<-hem.2014[,colnames(hem.2014)%in%rownames(traits)]
+
+mod<-manyglm(mvabund(hem.2014)~leaftraits$percN+leaftraits$percP+leaftraits$morphotype+leaftraits$meanWatercontent+leaftraits$meanSLA, family="negative.binomial"+(1|leaftraits$site))
+
+library(lattice)
+a        = max( abs(mod$coefficients) )
+colort   = colorRampPalette(c("blue","white","red")) 
+plot.spp = levelplot(as.matrix(mod$coefficients), xlab="Environmental Variables",
+ ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
+ scales = list( x= list(rot = 45)))
+
+plot.spp
+
+
+```
+
+#### 2d) Test strength of correlation between insect traits and host plant characteristics?
+
+<br>
+<br>
+
+```{r}
+ftspp1=traitglm(hem.sub,temp5,method="glm1path", family="negative.binomial")
+
+library(lattice)
+a        = max( abs(ftspp1$fourth.corner) )
+colort   = colorRampPalette(c("blue","white","red")) 
+plot.spp = levelplot(t(as.matrix(ftspp1$fourth.corner)), xlab="Environmental Variables",
+ ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
+ scales = list( x= list(rot = 45)))
+
+print(plot.spp)
+
+
+
+
+#levels(traits$polyphagy)<-c(levels(traits$polyphagy) ,"zgeneralist")
+#traits$polyphagy[traits$polyphagy=="generalist"]<-"zgeneralist"
+#traits$polyphagy<-factor(traits$polyphagy)
+#levels(traits$polyphagy)
+
+######################
+
+
+hem.sub<-hem.sub[,colnames(hem.sub)%in%rownames(traits)]
+traits<-traits[rownames(traits)%in%colnames(hem.sub),]
+traits<-traits[order(rownames(traits)),]
+hem.sub<-hem.sub[,order(colnames(hem.sub))]
+# Run 4th corner model
+model4th<-traitglm(hem.2014, leaftraits[,c(3,4,5,6,8)], traits,  method="manyglm", family="negative.binomial")
+
+# call coefficients
+model4th$fourth
+
+# plot coefficients
+a        = max( abs(model4th$fourth.corner),na.rm=T )
+colort   = colorRampPalette(c("blue","white","red")) 
+plot.4th = levelplot(t(as.matrix(model4th$fourth.corner)), xlab="Host Plant Traits",
+              ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
+                     scales = list( x= list(rot = 45), fontface="bold"))
+
+
+print(plot.4th)
+
+colnames(leaftraits)<-c("% Nitrogen", "% Phosphorus", "trichomes -", "SLA", "watercontent", "C:N")
+levels(leaftraits$`trichomes -`)<-c(levels(leaftraits$`trichomes -`), "none","intermediate", "high")
+leaftraits$`trichomes -`[leaftraits$`trichomes -`=="G"]<- "none"
+leaftraits$`trichomes -`[leaftraits$`trichomes -`=="H"]<- "intermediate"
+leaftraits$`trichomes -`[leaftraits$`trichomes -`=="P"]<- "high"
+leaftraits$`trichomes -`<-factor(leaftraits$`trichomes -`)
+
+
+colnames(traits)<-c("length", "feeding guild - ", "location nymph - ", "hosts - ")
+levels(traits$`hosts:`)<-c(levels(traits$`hosts:`), "generalist","specialist")
+traits$`hosts:`[traits$`hosts:`=="zgeneralist"]<-"generalist"
+traits$`hosts:`<-factor(traits$`hosts:`)
+traits$`hosts:`<-factor(traits$`hosts:`,levels=c("specialist", "generalist"))
+
+
+
+
+######################
+
+
+
+ftSmall=traitglm(hem.sub,temp5[,c(3,4,5,6,8)],traits)
+anova(ftSmall)
+# does permutations = work for this function?
+
+model4th<-traitglm(hem.test, leaftraits, traits.test,  method="glm1path", family="negative.binomial")
+model4th$fourth
+
+
+
+
+```
+
+
+
+## Conclusions
+<br>
+<br>
+
+##### (i) How do herbivore communities respond to phenotypic variation?
+There is variation in species composition across sites and metrosideros traits. NMDS plots indicate differences between sites and volcanoes in species composition. 
+
+##### (ii) Which plant traits account for herbivore community responses to host-plant phenotype?
+CCA results point to the importance of foliar nitrogen, leaf morphotype and specific leaf area. However, there is still a large part of variation not explained. 
+
+##### (iii) Which insect traits account for herbivore community responses to host-plant phenotype
+Community composition varies across metrosideros traits. Feeding guild is correlated with foliar %N, where leaf chewers (sig) and sap feeders (NS) are more abundant on higher nutrient trees. Feeding guild is correlated with morphotype, where high trichome density morphotype is correlated with higher abundance gallers and seed feeders, and lower abundances of chewers and sap feeders. Morphotype is positively correlated with proportion specialists (pubescent leaves show relatively higher abundances of specialists). Location of the nymph varies little across morphotypes, 
+
+
+
+<br>
+
+
+
+
+
+
