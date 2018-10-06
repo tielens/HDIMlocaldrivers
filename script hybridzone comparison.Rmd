@@ -869,7 +869,7 @@ traits$`hosts:`<-factor(traits$`hosts:`,levels=c("specialist", "generalist"))
 
 
 ftSmall=traitglm(hem.sub,leaftraits[,c(1,2,3,4,6)],traits)
-anova(ftSmall)
+anova.traitglm(ftSmall, nBoot=999, show.time=T)
 # does permutations = work for this function?
 
 model4th<-traitglm(hem.sub, leaftraits, traits,  method="glm1path", family="negative.binomial")
