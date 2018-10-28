@@ -177,7 +177,7 @@ orditorp(p,display="sites",cex=1.25,air=0.01)
 ordiplot(p,type="n")
 orditorp(p,display="species",col="red",air=0.01)
 orditorp(p,display="sites",pch=19, col="blue", label=F)
-ordiellipse(p,groups=env.both$site,draw="polygon",col="grey90",label=T)
+ordiellipse(p,groups=env.both$morphotype,draw="polygon",col="grey90",label=T)
 ```
 <br>
 
@@ -244,6 +244,10 @@ plot(vare.cca, display = "sites", scaling = 3, type="points")
 text(vare.cca, scaling = 3, display = "bp", pch=4) 
 text(vare.cca, display = "species", scaling = 3, col="red")
 
+
+
+leaftraits.new<-leaftraits[leaftraits$vialID%in%env.yng$vialID,]
+leaftraits.new<-merge(leaftraits.new,env.yng, by="vialID")
 ```
 
 <br>
@@ -523,7 +527,25 @@ leaftraits<-leaftraits[,-7]
 <br>
 Arthropod abundance per feeding guild varies across leaf nitrogen content. Leaf chewers increase in abundance with nitrogen content, and this increase is significant. Abundance of sap feeders also increases with percN, but the spread is large and this increase is not significant. Abundance of gall makers is not correlated with nitrogen content, and abundance of seed feeders decreases non-significantly with foliar nitrogen content.
 
+<br>
 
+Are communities distinctly different between different morphotype trees across all youngish sites?
+```{r}
+
+moment<-metaMDS(hem.both, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="all hybrid zone sites")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env.both$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env.both$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env.both$morphotype == "P")
+
+Lab<-c("Glabrous", "Hybrid", "Pubescent")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+```
 <br>
 
 
@@ -732,9 +754,9 @@ tem<-ifelse(tem[,2]==0,0,1/tem[,2])
 anova(lm(tem~env.both$morphotype))
 anova(lmer(tem~env.both$morphotype+(1|env.both$site)))
 
-tem<-1/(1-ChaoShannon(as.data.frame(t(hem.both)) )[,2])
-tem[2]<-1
-tem[26]<-1 
+tem<-exp(ChaoShannon(as.data.frame(t(hem.both)) )[,2])
+#tem[2]<-1
+#tem[26]<-1 
 anova(lm(tem~env.both$morphotype))
 anova(lmer(tem~env.both$morphotype+(1|env.both$site)))
 
@@ -746,7 +768,14 @@ plot(tem~env.both$morphotype, ylab="Species Richness")
 # richness does diff sig between morphotype, diversity shannon or simpson does not.
 # ie the difference between glabrous and hybrid and glabrous and pubescent is in rare species- glabrous has more rare species than the other two morphotypes, but once you weigh rare species less, there are no differences in diversity
 
-plot(diversity(hem.both)/log(specnumber(hem.both))~env.both$morphotype, ylab="Pielou's Evenness")
+
+
+### plots for all sites
+plot(diversity(hem)/log(specnumber(hem))~env$morphotype, ylab="Pielou's Evenness")
+plot(rowSums(hem)~env$morphotype,  ylab="Abundance",xlab="Tree morphotype", main="across big island (n=170)", ylim=c(0,350))
+
+tem<-exp(ChaoShannon(as.data.frame(t(hem)) )[,2])
+plot(tem~env$morphotype, ylab="Exp Shannon Index",main="across big island (n=170)", xlab="Tree morphotype")
 ```
 
 <br>
