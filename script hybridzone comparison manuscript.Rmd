@@ -77,6 +77,7 @@ env.both<-env.both[env.both$island=="Hawaii",]
 # create env data for 2014
 env.2014<-env.both[env.both$sampleyear=="2014",]
 
+
 # create hem data
 hem.both<-hem[rownames(hem)%in%env.both$vialID,]
 hem.2014<-hem[rownames(hem)%in%env.2014$vialID,]
@@ -134,7 +135,7 @@ xy.both<-xy[xy$vialID %in% env.both$vialID,]
 <br>
 <br>
 
-#### Some context: Richness across chronosequence
+#### Some context: Richness across hybrid sites 
 <br>
 ```{r describe_insect_community, echo=FALSE, warning=FALSE}
 ord<-c( "ERO",  "KAIY", "OLAA", "ALI")
@@ -161,7 +162,7 @@ orditorp(p,display="sites",cex=1.25,air=0.01)
 ordiplot(p,type="n")
 orditorp(p,display="species",col="red",air=0.01)
 orditorp(p,display="sites",pch=19, col="blue", label=F)
-ordiellipse(p,groups=env.both$morphotype,draw="polygon",col="grey90",label=T)
+ordiellipse(p,groups=env.both$morphotype,draw="polygon",col="grey90",label=T, kind="se")
 ```
 <br>
 
@@ -282,7 +283,7 @@ adonis(hem.2014~xy.2014$lat+xy.2014$long+leaftraits$percN+leaftraits$percP+leaft
 
 
 
-adonis(hem.2014~leaftraits$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP+env.2014$site+scale(xy.2014$lat,scale=T,center=T), by="margin")
+adonis(hem.2014~leaftraits$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP+scale(xy.2014$lat,scale=T,center=T), by="margin")
 
 
 adonis(hem.2014~env.2014$tree.height+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$percN+env.2014$z.age+xy.2014$lat+xy.2014$long+env.2014$site, by="margin")
@@ -373,6 +374,75 @@ plot(m9)
 m2
 ```
 
+
+#### Do CCA with data lumped for 2014 and 2015
+```{r}
+hem.all<-hem
+hem.all$vialID<-rownames(hem.all)
+hem.all<-merge(hem.all, env, by="vialID")
+hem.all<-hem.all[,-c(87:97)]
+melt<-melt(hem.all)
+hem.all<-dcast(melt, site+plot~variable, sum)
+
+env.all<-hem.all[,c(1,2)]
+hem.all$ID<-paste(hem.all$site, hem.all$plot, sep="_")
+rownames(hem.all)<-hem.all$ID
+
+
+env.alt<-env[env$vialID%in%rownames(leaftraits.full),]
+#env.alt<-env.alt[,-1]
+env.alt<-merge(env.alt,env.all, by=c("site","plot"))
+env.alt$ID<-paste(env.alt$site, env.alt$plot, sep="_")
+env.alt$DW[4]<-env.alt$DW[4]+env.alt$DW[5]
+env.alt<-env.alt[-5,]
+env.alt$DW[71]<-env.alt$DW[71]+env.alt$DW[72]
+env.alt<-env.alt[-72,]
+hem.all<-hem.all[hem.all$ID %in% env.alt$ID,]
+env.alt<-env.alt[env.alt$ID %in% hem.all$ID,]
+
+leaftraits.alt<-leaftraits.full[rownames(leaftraits.full)%in%env.alt$vialID,]
+
+hem.all<-hem.all[,-c(1,2,86)]
+colSums(hem.all)
+rowSums(hem.all)
+
+
+# data looks good- use hem.all for merged 2014 and 2015 data
+
+
+
+
+
+
+#######################################
+
+
+
+
+
+
+plot(mod.leaf.age.site, type="none")
+points(mod.leaf.age.site, display="sites", pch=19)
+#text(mod.leaf.age.site, display="species")
+plot(envfit(mod.leaf.age.site, leaftraits[, c(1,2,3,4,6)]))
+
+
+
+vare.cca <- cca(decostand(hem.all, "total") ~ ., data = leaftraits.alt) 
+
+plot(vare.cca, display = "sites", scaling = 3, type="points")
+text(vare.cca, scaling = 3, display = "bp", pch=4) 
+text(vare.cca, display = "species", scaling = 3, col="red", cex=0.5)
+anova(vare.cca, by = "margin", step=200 )
+
+adonis(hem.all~leaftraits.alt$morphotype+leaftraits.alt$meanSLA+leaftraits.alt$percN+env.alt$z.age, by="margin")
+
+
+```
+
+
+
+
 <br>
 
 #### (iii) Which insect traits account for herbivore community responses to host-plant phenotype
@@ -405,6 +475,14 @@ points(mds.fig, "sites", pch = 17, col = "red", select = env$morphotype == "P")
 Lab<-c("Glabrous", "Hybrid", "Pubescent")
 color<-c("grey", "blue", "red")
 legend(  "topright", legend=Lab,pch=c(19,15,17),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+# for all sites without double measures (n=97)
+moment<-metaMDS(hem.all, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="all sites")
+text(mds.fig, "species",cex=0.5)
+points(mds.fig, "sites", pch = 19, col = "grey", select = env$morphotype == "G")
+points(mds.fig, "sites", pch = 15, col = "blue", select = env$morphotype == "H")
+points(mds.fig, "sites", pch = 17, col = "red", select = env$morphotype == "P")
 
 ```
 <br>
@@ -640,15 +718,29 @@ hem.2014$vialID<-rownames(hem.2014)
 leaftraits$vialID<-rownames(leaftraits)
 hem.2014.long<-melt(hem.2014)
 hem.2014.long<-merge(leaftraits, hem.2014.long, by="vialID")
+hem.2014.long<-merge(env[,1:2], hem.2014.long, by="vialID")
 
 
-
-mod.season    =glmer(value    ~morphotype    +(1+morphotype|variable),  data    =hem.both.long,   family    =poisson)
+mod.season    =glmer(value    ~morphotype +perc   +(1+morphotype|variable)+(1|site),  data    =hem.both.long,   family    =poisson)
 dotplot(ranef(mod.season,    condVar    =T))
 summary(mod.season)
 
 mod.no.season    =glmer(value    ~morphotype    +(1|variable),    data    =hem.both.long,family  =poisson)
 anova(mod.season,    mod.no.season)
+
+hem.both.long$percN.standard<-(hem.both.long$percN-mean(hem.both.long$percN))/sd(hem.both.long$percN)
+hem.both.long$percP.standard<-(hem.both.long$percP-mean(hem.both.long$percP))/sd(hem.both.long$percP)
+hem.both.long$meanSLA.standard<-(hem.both.long$meanSLA-mean(hem.both.long$meanSLA))/sd(hem.both.long$meanSLA)
+hem.both.long$meanWatercontent.standard<-(hem.both.long$meanWatercontent-mean(hem.both.long$meanWatercontent))/sd(hem.both.long$meanWatercontent)
+
+
+
+
+
+
+
+
+############## 2014 only
 
 
 hem.2014.long$percN.standard<-(hem.2014.long$percN-mean(hem.2014.long$percN))/sd(hem.2014.long$percN)
