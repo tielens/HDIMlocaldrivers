@@ -177,7 +177,7 @@ hem.ero<-hem[env$site=="ERO",]
 hem.ali<-hem[env$site=="ALI",]
 hem.kaiy<-hem[env$site=="KAIY",]
 hem.olaa<-hem[env$site=="OLAA",]
-
+hem.kaio<-hem[env$site=="KAIO",]
 
 #par(mfrow=c(2,2))
 
@@ -228,6 +228,37 @@ points(mds.fig, "sites", pch = 15, col = "blue", select = env[env$site=="OLAA",]
 Lab<-c("Glabrous", "Hybrid")
 color<-c("green", "blue" )
 legend(  "topright", legend=Lab,pch=c(19,15),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+# experiment with adding data kaiholena old- only 6 data points
+moment<-metaMDS(hem.kaio, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="KAIO limited data")
+text(mds.fig, "species", cex=0.5)
+points(mds.fig, "sites", pch = 15, col = "blue", select = env[env$site=="KAIO",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="KAIO",]$morphotype == "P")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="KAIO",]$morphotype == "G")
+
+Lab<-c( "Hybrid", "Pubescent", "Glabrous")
+color<-c("blue", "red", "green")
+legend(  "topright", legend=Lab,pch=c(15,19),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+# explore adding kaio to kaiy. 
+hem.kai.all<-rbind(hem.kaiy,hem.kaio)
+env.kai.all<-rbind(env[env$site=="KAIY",],env[env$site=="KAIO",])
+
+moment<-metaMDS(hem.kai.all, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="KAI all")
+text(mds.fig, "species", cex=0.5)
+points(mds.fig, "sites", pch = 15, col = "blue", select = env.kai.all$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env.kai.all$morphotype == "P")
+points(mds.fig, "sites", pch = 19, col = "green", select = env.kai.all$morphotype == "G")
+
+adonis(hem.kai.all~env.kai.all$morphotype, by="margin")
+
+
+
 
 
 
@@ -300,8 +331,8 @@ adonis(hem.sub~leaftraits.full$morphotype+leaftraits.full$meanSLA+leaftraits.ful
 
 
 
-
-
+temp<-hem[env$sampleyear=="2014",]
+temp<-temp[env$vialID%in%rownames(leaftraits.full),]
 
 
 mod.leaf<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+leaftraits$percP)
@@ -375,67 +406,129 @@ m2
 ```
 
 
-#### Do CCA with data lumped for 2014 and 2015
+
+
+
+
+
+
+
+
+
+#### Do CCA and permanova with data lumped for 2014 and 2015
 ```{r}
-hem.all<-hem
-hem.all$vialID<-rownames(hem.all)
-hem.all<-merge(hem.all, env, by="vialID")
-hem.all<-hem.all[,-c(87:97)]
-melt<-melt(hem.all)
-hem.all<-dcast(melt, site+plot~variable, sum)
+# subset data in species by site matrix such that it has only 24 rows, one for each site plot combination
+# each row should be the sum of collecting in 2014 and 2015
 
-env.all<-hem.all[,c(1,2)]
-hem.all$ID<-paste(hem.all$site, hem.all$plot, sep="_")
-rownames(hem.all)<-hem.all$ID
+# be careful to exclude anywhere where sampling effort is wildly different
 
+hem$vialID<-rownames(hem)
+temp<-melt(hem)
+trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
 
-env.alt<-env[env$vialID%in%rownames(leaftraits.full),]
-#env.alt<-env.alt[,-1]
-env.alt<-merge(env.alt,env.all, by=c("site","plot"))
-env.alt$ID<-paste(env.alt$site, env.alt$plot, sep="_")
-env.alt$DW[4]<-env.alt$DW[4]+env.alt$DW[5]
-env.alt<-env.alt[-5,]
-env.alt$DW[71]<-env.alt$DW[71]+env.alt$DW[72]
-env.alt<-env.alt[-72,]
-hem.all<-hem.all[hem.all$ID %in% env.alt$ID,]
-env.alt<-env.alt[env.alt$ID %in% hem.all$ID,]
+trial.env<-merge(temp, env[,1:3], by="vialID")
+trial<-dcast(trial.env, site+plot~variable, fun.aggregate = sum,value.var="value")
 
-leaftraits.alt<-leaftraits.full[rownames(leaftraits.full)%in%env.alt$vialID,]
-
-hem.all<-hem.all[,-c(1,2,86)]
-colSums(hem.all)
-rowSums(hem.all)
+trial<-trial[trial$site%in%env.both$site,]
 
 
-# data looks good- use hem.all for merged 2014 and 2015 data
+rowSums(hem[env$site=="KAIY",])
+
+rowSums(trial[,-c(1:2)])
+table(env$site)
+
+##################################################
+
+env.trial<-trial[,1:2]
+env.trial<-unique(merge(env.trial, env[,c(2,3,10)], by=c("site","plot")))
+trial<-trial[,-c(1:2)]
+
+
+moment<-metaMDS(trial, k=3)
+mds.fig <- ordiplot(moment, type = "none", main=" all")
+text(mds.fig, "species", cex=0.5)
+points(mds.fig, "sites", pch = 15, col = "blue", select = env.trial$morphotype.x == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env.trial$morphotype.x == "P")
+points(mds.fig, "sites", pch = 19, col = "green", select = env.trial$morphotype.x == "G")
+
+adonis(trial~env.trial$morphotype.x, by="margin")
+
+
+# with 2014 and 2015 data summed pretty similar results to when with twice as many data points
+
+# pretend it has vialID
+env.trial<-merge(env.trial, env.2014[,1:3], by=c("site","plot"))
+
+rownames(trial)<-env.trial$vialID
+
+# make sure all same order
+env.trial<-env.trial[order(env.trial$vialID),]
+trial<-trial[order(rownames(trial)),]
+
+
+m1<-adonis(trial~leaftraits$meanWatercontent+env.trial$morphotype+leaftraits$meanSLA+leaftraits$percN+leaftraits$percP, by="margin")
+# even as first variable water content is not sig
+adonis(trial~env.trial$morphotype+leaftraits$meanSLA+leaftraits$percN+leaftraits$percP, by="margin")
+# percN NS in third place, what about up front
+adonis(trial~leaftraits$percN+leaftraits$meanSLA+env.trial$morphotype+leaftraits$percP, by="margin")
+# does better in first place, seems to correlate alot with SLA. what if only including SLA- sig in last place?
+adonis(trial~env.trial$morphotype+leaftraits$percP+leaftraits$meanSLA, by="margin")
+# SLA still sig. percP is not in second place (it is sig in first place)
+adonis(trial~leaftraits$meanSLA+env.trial$morphotype, by="margin")
+
+# mean SLA and morphotype sig
+# regardless of which comes first, together R2 0.28, in both cases ~p<0.01
+
+
+mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP)
+mod3<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent)
+mod2<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN)
+mod<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype)
+anova(mod,mod2,mod3,mod4)
+anova(mod3,mod4)
+# longest model seems best
+
+
+mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP)
+
+plot(mod4, display = "sites", scaling = 3, type="points")
+text(mod4, scaling = 3, display = "bp", pch=4) 
+text(mod4, display = "species", scaling = 3, col="red", cex=0.5)
+anova(mod4, by = "margin", step=200 )
+mod4
+# morphotype, mean water and percP are sig, SLA marginally
+# on figure, percN, percP and SLA completely overlaying eachother. morphotype H and P also fall in same spot
+# explains 41% variation
 
 
 
-
-
-
-#######################################
-
-
-
-
-
-
-plot(mod.leaf.age.site, type="none")
-points(mod.leaf.age.site, display="sites", pch=19)
-#text(mod.leaf.age.site, display="species")
-plot(envfit(mod.leaf.age.site, leaftraits[, c(1,2,3,4,6)]))
-
-
-
-vare.cca <- cca(decostand(hem.all, "total") ~ ., data = leaftraits.alt) 
+# explore:
+# seems like all of the dimensions around leaftraits are captured by meanSLA (cor strongly with percN, percP), morphotype and water content
+vare.cca <- cca(decostand(trial, "total") ~ ., data = leaftraits[,c(3,4,6)]) 
 
 plot(vare.cca, display = "sites", scaling = 3, type="points")
 text(vare.cca, scaling = 3, display = "bp", pch=4) 
 text(vare.cca, display = "species", scaling = 3, col="red", cex=0.5)
 anova(vare.cca, by = "margin", step=200 )
 
-adonis(hem.all~leaftraits.alt$morphotype+leaftraits.alt$meanSLA+leaftraits.alt$percN+env.alt$z.age, by="margin")
+vare.cca
+# together 30% variation
+
+
+
+
+
+
+
+
+# plot cca with best variables from permanova:
+plot(mod, type="none")
+points(mod, display="sites", pch=19)
+#text(mod, display="species")
+plot(envfit(mod, leaftraits[, c(3,6)]))
+mod
+# together 23% variation
+
 
 
 ```
@@ -488,11 +581,6 @@ points(mds.fig, "sites", pch = 17, col = "red", select = env$morphotype == "P")
 <br>
 
 
-
-
-#
-
-adonis(hem.2014 ~  leaftraits$percN +leaftraits$percP+leaftraits$morphotype  + leaftraits$meanWatercontent +leaftraits$meanSLA +env.2014$site , by="terms")
 
 # phosphorus and morphotype are only sig when only/first term
 # mean SLA and mean water content are always sig no matter their placement
@@ -570,26 +658,6 @@ plot(tem~env$morphotype, ylab="Exp Shannon Index",main="across big island (n=170
 <br>
 
 
-```{r}
-#mod.leaf.site<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+leaftraits$percP+env.2014$site, na.rm=TRUE)
-
-
-#mod.leaf.site
-# 56% of variation constrained
-
-#mod.leaf<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+leaftraits$percP)
-mod.leaf
-
-
-#plot(mod.leaf.site, type="none")
-#points(mod.leaf.site, display="sites")
-#text(mod.leaf.site, display="species")
-#plot(envfit(mod.leaf.site, temp5[,c(3,4,5,6,8)]))
-
-#anova(mod.leaf.site, by = "margin", step=200 )
-
-
-```
 
 How much variation is explained by spatial proximity?
 ```{r}
@@ -707,26 +775,18 @@ model4th$fourth
 
 
 
-
+###### GLMER
 
 ```{r}
+# dataset with 2014 and 2015 data
 hem.both$vialID<-rownames(hem.both)
 hem.both.long<-melt(hem.both)
 hem.both.long<-merge(env.both, hem.both.long, by="vialID")
-
-hem.2014$vialID<-rownames(hem.2014)
-leaftraits$vialID<-rownames(leaftraits)
-hem.2014.long<-melt(hem.2014)
-hem.2014.long<-merge(leaftraits, hem.2014.long, by="vialID")
-hem.2014.long<-merge(env[,1:2], hem.2014.long, by="vialID")
-
-
-mod.season    =glmer(value    ~morphotype +perc   +(1+morphotype|variable)+(1|site),  data    =hem.both.long,   family    =poisson)
-dotplot(ranef(mod.season,    condVar    =T))
-summary(mod.season)
-
-mod.no.season    =glmer(value    ~morphotype    +(1|variable),    data    =hem.both.long,family  =poisson)
-anova(mod.season,    mod.no.season)
+temp<-merge(leaftraits,env[,c(1:3)], by="vialID")
+temp<-temp[,-1]   
+hem.both.long<-hem.both.long[,-1]
+              c("site", "plot"))
+hem.both.long<-merge(hem.both.long, temp, by=c("site", "plot"))
 
 hem.both.long$percN.standard<-(hem.both.long$percN-mean(hem.both.long$percN))/sd(hem.both.long$percN)
 hem.both.long$percP.standard<-(hem.both.long$percP-mean(hem.both.long$percP))/sd(hem.both.long$percP)
@@ -734,139 +794,89 @@ hem.both.long$meanSLA.standard<-(hem.both.long$meanSLA-mean(hem.both.long$meanSL
 hem.both.long$meanWatercontent.standard<-(hem.both.long$meanWatercontent-mean(hem.both.long$meanWatercontent))/sd(hem.both.long$meanWatercontent)
 
 
+############## analysis data 2014, 2015
+
+modelP=glmer(value ~morphotype.x +meanSLA.standard +percP.standard+(1+percP.standard|variable)+(1|site),  data    =hem.both.long,   family    =poisson)
+qqnorm(resid(modelP))
+# overdispersed? negative binomial more appropriate
+
+# best model is modelP, including morphotype, SLA and P, with species specific response to P and site also as random effect
+modelSLA=glmer.nb(value ~meanSLA.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site),  data    =hem.both.long)
+modelP=glmer.nb(value ~meanSLA.standard+percP.standard+(1+percP.standard|variable)+(1|site),  data    =hem.both.long)
+modelN=glmer.nb(value ~percN.standard+percP.standard+(1+percN.standard|variable)+(1|site),  data    =hem.both.long)
+
+anova(modelP,modelSLA,modelN)
+modelPalone=glmer.nb(value ~percP.standard+(1+percP.standard|variable)+(1|site),  data    =hem.both.long)
+modelPmorph=glmer.nb(value ~morphotype.x+percP.standard+(1+percP.standard|variable)+(1|site),  data    =hem.both.long)
+modelPSLA=glmer.nb(value ~meanSLA.standard+(1+percP.standard|variable)+(1|site),  data    =hem.both.long)
+
+anova(modelP,modelPalone,modelPmorph)
+modelwP=glmer.nb(value ~morphotype.x+percP.standard+(1|variable)+(1|site),  data    =hem.both.long)
+modelPwallP=glmer.nb(value ~morphotype.x+(1|variable)+(1|site),  data    =hem.both.long)
+anova(modelPmorph,modelwP,modelPwallP)
+
+# model with morphotype and perc P, and random effect of percP is best model
+summary(modelPmorph)
+dotplot(ranef(modelP, condVar=T))
+
+# check for overdispersion:
+pcsq<-sum(resid(modelP,type="pearson")^2)
+rdf<-df.residual(modelP)
+pchisq(pcsq,rdf,lower.tail=F)
+pcsq/rdf
+
+library(blmeco)
+dispersion_glmer(modelP)
+# alternatively could use package DHArma
 
 
 
-
-
-
-############## 2014 only
-
-
-hem.2014.long$percN.standard<-(hem.2014.long$percN-mean(hem.2014.long$percN))/sd(hem.2014.long$percN)
-hem.2014.long$percP.standard<-(hem.2014.long$percP-mean(hem.2014.long$percP))/sd(hem.2014.long$percP)
-hem.2014.long$meanSLA.standard<-(hem.2014.long$meanSLA-mean(hem.2014.long$meanSLA))/sd(hem.2014.long$meanSLA)
-hem.2014.long$meanWatercontent.standard<-(hem.2014.long$meanWatercontent-mean(hem.2014.long$meanWatercontent))/sd(hem.2014.long$meanWatercontent)
-
-
-# not enough datapoints for all predictors, only include half
-mod.leaf    =glmer(value    ~morphotype +percN.standard+meanSLA.standard   +(1+morphotype+percN.standard+meanSLA.standard|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod.leaf,    condVar    =T))
-summary(mod.season)
-
-mod.no.leaf    =glmer(value    ~morphotype   +percN.standard+meanSLA.standard +(1|variable),    data    =hem.2014.long,family  =poisson)
-anova(mod.leaf,    mod.no.leaf)
-# model with species specific intercept is better
-
-
-# check for other half predictors
-mod.leaf.2    =glmer(value    ~percP.standard+meanWatercontent.standard   +(1+percP.standard+meanWatercontent.standard|variable),  data    =hem.2014.long,   family    =poisson)
-summary(mod.leaf.2)
-
-anova(mod.leaf.2,    mod.leaf,mod.no.leaf)
-
-dotplot(ranef(mod.leaf.2,    condVar    =T))
-
-mod.leaf.2    =glmer(value    ~percP.standard+meanWatercontent.standard   +(1+percP.standard+meanWatercontent.standard|variable),  data    =hem.2014.long,   family    =poisson)
-summary(mod.leaf.2)
-
-
-mod1    =glmer(value    ~percN.standard+meanWatercontent.standard +morphotype  +(1+percN.standard+meanWatercontent.standard+morphotype|variable),  data    =hem.2014.long,   family    =poisson)
-anova(mod.leaf,mod.leaf.2,mod1)
-mod2    =glmer(value    ~percP.standard+meanWatercontent.standard + percN.standard+meanSLA.standard +(1+percP.standard+meanWatercontent.standard+percN.standard+meanSLA.standard|variable),  data    =hem.2014.long,   family    =poisson)
-anova(mod1,mod2,mod.leaf.2)
-# keep morphotype
-
-# model without N, with other predictors
-mod3    =glmer(value    ~percP.standard+meanWatercontent.standard +morphotype +meanSLA.standard +(1+percP.standard+meanWatercontent.standard+morphotype+meanSLA.standard|variable),  data    =hem.2014.long,   family    =poisson)
-
-# full model:
-mod4    =glmer(value    ~percP.standard+meanWatercontent.standard +morphotype +meanSLA.standard+percN.standard +(1+percP.standard+meanWatercontent.standard+morphotype+meanSLA.standard+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-anova(mod3,mod1,mod4)
-# full model is best
-
-mod5    =glmer(value    ~percP.standard +morphotype +meanSLA.standard+percN.standard +(1+percP.standard+morphotype+meanSLA.standard+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-mod6    =glmer(value    ~meanWatercontent.standard +morphotype +meanSLA.standard+percN.standard +(1+meanWatercontent.standard+morphotype+meanSLA.standard+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-mod7    =glmer(value    ~meanWatercontent.standard +morphotype +percN.standard +(1+meanWatercontent.standard+morphotype+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-mod8    =glmer(value    ~percP.standard+meanWatercontent.standard  +meanSLA.standard+percN.standard +(1+percP.standard+meanWatercontent.standard+meanSLA.standard+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-
-anova(mod4,mod5,mod6,mod3,mod7,mod8)
-# mod4 is best- ie full model. 
-
-mod9    =glmer(value    ~percP.standard+morphotype +(1+percP.standard+morphotype|variable),  data    =hem.2014.long,   family    =poisson)
-
-summary(mod4)
-# important predictors are phorphorus and morphotype
-
-## Full model is best, sig predictors in full model are phosphorus and morphotype. 
-# species specific intercepts explain much better
-#
-
-
-dotplot(ranef(mod4,condVar=T))
-# look at dotplot on a leaftrait by leaftrait basis
-
-mod    =glmer(value    ~percP.standard +(1+percP.standard|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod,condVar=T))
-mod    =glmer(value    ~percN.standard +(1+percN.standard|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod,condVar=T))
-mod    =glmer(value    ~meanSLA.standard +(1+meanSLA.standard|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod,condVar=T))
-mod    =glmer(value    ~meanWatercontent.standard +(1+meanWatercontent.standard|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod,condVar=T))
-mod    =glmer(value    ~morphotype +(1+morphotype|variable),  data    =hem.2014.long,   family    =poisson)
-dotplot(ranef(mod,condVar=T))
-
-
-
-hemlong<-hem.2014.long[hem.2014.long$variable==c("GRE_PSI"),]
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("OCE_VUL"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("OPU_SP"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("LEI_SP"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("ORT_MET"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("KOA_HAW"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("SAR_ADO"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("GEO_SP"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("PAR_PYR"),])
-hemlong<-rbind(hemlong,hem.2014.long[hem.2014.long$variable==c("TYM_TYM"),])
-
+################# Figures 2015 and 2014 data
 
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000", "green")
-  
-  
-  ggplot(data=hemlong, aes(x=percN.standard, y=log(value), group=variable, colour=variable)) +
-#    geom_point()+
+ggplot(data=hem.both.long, aes(x=percP.standard, y=log(value), group=variable, colour=variable)) +
+  #    geom_point()+
   geom_smooth(method=lm, se=F,level=0.95)+
-  ylab("Abundance")+ xlab("standardized foliar nitrogen %")+
-  scale_colour_manual(values=cbPalette, name="Species",  labels=c("GRE_PSI Aphididae", "OCE_VUL Lygaeidae", "OPU_SP Miridae", "LEI_SP Delphacidae", "ORT_MET Miridae", "KOA_HAW Miridae", "SAR_ADO Miridae", "GEO_SP Geometridae (Lepidoptera)", "PAR_PYR Triozidae", "TYM_TYM Pseudococcidae"))+
+  ylab("Abundance")+ xlab("standardized perc P")+
+    theme_bw()
+
+
+hemtop10<-hem.both.long[hem.both.long$variable==c("GRE_PSI"),]
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("OCE_VUL"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("OPU_SP"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("LEI_SP"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("ORT_MET"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("KOA_HAW"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("SAR_ADO"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("PAR_PYR"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("TYM_TYM"),])
+hemtop10<-rbind(hemtop10,hem.both.long[hem.both.long$variable==c("OLI_SP"),])
+
+
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000", "green", "#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000", "green")
+formatlines<-c(1,2,3,4,5,6,7,1,2,3,4,5,6,7,1,2,3,4,5,6)
+
+ggplot(data=hemtop10, aes(x=percP.standard, y=log(value), group=variable, linetype=variable, colour=variable)) +
+  geom_smooth(method=lm, se=F,level=0.95)+
+  ylab("Abundance")+ xlab("standardized foliar phosphorus %")+
+  scale_linetype_manual(values=formatlines, name="Species")+
+  scale_colour_manual(values=cbPalette, name="Species")+
   theme_bw()
 
-
-ggplot(data=hemlong, aes(x=percP.standard, y=log(value), group=variable, colour=variable)) +
- #   geom_point()+
+ggplot(data=hemtop10, aes(x=meanSLA.standard, y=log(value), group=variable, linetype=variable, colour=variable)) +
   geom_smooth(method=lm, se=F,level=0.95)+
-    ylab("Abundance")+ xlab("standardized foliar phosphorus %")+
-  scale_colour_manual(values=cbPalette, name="Species",  labels=c("GRE_PSI Aphididae", "OCE_VUL Lygaeidae", "OPU_SP Miridae", "LEI_SP Delphacidae", "ORT_MET Miridae", "KOA_HAW Miridae", "SAR_ADO Miridae", "GEO_SP Geometridae (Lepidoptera)", "PAR_PYR Triozidae", "TYM_TYM Pseudococcidae"))+
+  ylab("Abundance")+ xlab("standardized SLA%")+
+  scale_linetype_manual(values=formatlines, name="Species")+
+  scale_colour_manual(values=cbPalette, name="Species")+
   theme_bw()
 
-ggplot(data=hemlong, aes(x=meanSLA.standard, y=log(value), group=variable, colour=variable)) +
-#    geom_point()+
-  geom_smooth(method=lm, se=F,level=0.95)+
-    ylab("Abundance")+ xlab("standardized mean specific leaf area")+
-  scale_colour_manual(values=cbPalette, name="Species",  labels=c("GRE_PSI Aphididae", "OCE_VUL Lygaeidae", "OPU_SP Miridae", "LEI_SP Delphacidae", "ORT_MET Miridae", "KOA_HAW Miridae", "SAR_ADO Miridae", "GEO_SP Geometridae (Lepidoptera)", "PAR_PYR Triozidae", "TYM_TYM Pseudococcidae"))+
+ggplot(data=hemtop10, aes(x=morphotype.x, y=log(value), group=variable, linetype=variable, colour=variable)) +
+  geom_point()+
+  ylab("Abundance")+ xlab("standardized foliar phosphorus %")+
+  scale_shape_manual(values=formatlines, name="Species")+
+  scale_colour_manual(values=cbPalette, name="Species")+
   theme_bw()
 
-ggplot(data=hemlong, aes(x=meanWatercontent.standard, y=log(value), group=variable, colour=variable)) +
-#    geom_point()+
-  geom_smooth(method=lm, se=F,level=0.95)+
-    ylab("Abundance")+ xlab("standardized mean water content")+
-  scale_colour_manual(values=cbPalette, name="Species",  labels=c("GRE_PSI Aphididae", "OCE_VUL Lygaeidae", "OPU_SP Miridae", "LEI_SP Delphacidae", "ORT_MET Miridae", "KOA_HAW Miridae", "SAR_ADO Miridae", "GEO_SP Geometridae (Lepidoptera)", "PAR_PYR Triozidae", "TYM_TYM Pseudococcidae"))+
-  theme_bw()
-
-
-
-
-#
 ```
 
 
@@ -891,53 +901,6 @@ Community composition varies across metrosideros traits. Feeding guild is correl
 <br>
 
 
-
-
-```{r}
-temp<-hem.both
-temp<-ifelse(hem.both>0,1,0)
-beta.multi(temp, index.family="sor")
-
-temp<-hem.olaa
-temp<-ifelse(hem.olaa>0,1,0)
-beta.multi(temp, index.family="sor")
-
-beta.pair(temp)
-
-beta.ceram.s<-beta.sample(temp, index.family="sor", sites=10, samples=100)
-
-
-
-
-
-
-
-
-# NOT RUN {
-# Read the data for Northern and Southern European cerambycids
-ceram.s<-ifelse(hem.kaiy>0,1,0)
-ceram.n<-ifelse(hem.ero>0,1,0)
-
-# Resample 100 times the multiple-site dissimilarities
-# for 10 countries.
-beta.ceram.s<-beta.sample(ceram.s, index.family="sor", sites=10, samples=100)
-beta.ceram.n<-beta.sample(ceram.n, index.family="sor", sites=10, samples=100)
-
-# Plot the distributions of beta.SIM in Southern Europe (red) 
-# and Northern Europe (blue)
-plot(density(beta.ceram.s$sampled.values$beta.SIM), col="red", xlim=c(0,1))
-lines(density(beta.ceram.n$sampled.values$beta.SIM), col="blue")
-
-# Compute the p-value of difference in beta.SIM between South and North 
-# (i.e. the probability of finding in the North a higher value than 
-# in the South)
-p.value.beta.SIM<-length(which(beta.ceram.s$sampled.values$beta.SIM<
-beta.ceram.n$sampled.values$beta.SIM))/100
-
-p.value.beta.SIM
-# The result is 0 and we used 100 samples, so p<0.01
-# }
-```
 
 
 
