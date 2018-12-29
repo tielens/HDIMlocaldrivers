@@ -287,19 +287,17 @@ There are differences in species richness as well as species composition across 
 
 ```{r Cor}
 # partition variance between environment and spatial
-test<-rda(decostand(hem, "hel"), env$z.age, xy[,2:3])
-test<-varpart(vegdist(hem), env$z.age, xy[,2:3])
-capscale(vegdist(hem)~ xy[,2]+xy[,3])
+           #test<-rda(decostand(trial, "hel"), leaftraits[,c(1:4,6)], xy.2014[,2:3])
+#test<-varpart(vegdist(hem), env$z.age, xy[,2:3])
+#capscale(vegdist(trial)~ leaftraits[,1:4]+xy[,2:3])
+#test
+#plot(test)
 
-# appears that spatial is not important at all across all 170 datapoints
-# try again on subset with leaftraits
-xy.sub<-xy[xy$vialID%in%rownames(leaftraits.full),]
-test<-varpart(vegdist(decostand(hem.sub, "hel")), leaftraits.full[,c(1,2,3,4,6)], xy.sub[,2:3])
-test
-plot(test)
-test<-rda(decostand(hem.2014, "hel"), leaftraits[,c(1,2,3,4,6)], xy.2014[,2:3])
+
 test<-varpart(vegdist(decostand(hem.2014, "hel")), leaftraits[,c(1,2,3,4,6)], xy.2014[,2:3])
-test.wout<-rda(decostand(hem.2014, "hel"), leaftraits[,c(1,2,3,4,6)], env.2014$site)
+test<-rda(decostand(hem.2014, "hel"), leaftraits[,c(1,2,3,4,6)], xy.2014[,2:3])
+
+test.wout<-rda(decostand(hem.2014, "hel"), leaftraits[,c(1,2,3,4,6)])
 test.spat<-rda(decostand(hem.2014, "hel"),  xy.2014[,2:3])
 anova(test)
 
@@ -312,11 +310,7 @@ adonis(hem.2014~xy.2014$lat+xy.2014$long+leaftraits$percN+leaftraits$percP+leaft
 # while almost always sig (for 170 data points and 24), R2 is less than 0.1 in all cases  
 
 
-
-
 adonis(hem.2014~leaftraits$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP+scale(xy.2014$lat,scale=T,center=T), by="margin")
-
-
 adonis(hem.2014~env.2014$tree.height+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$percN+env.2014$z.age+xy.2014$lat+xy.2014$long+env.2014$site, by="margin")
 
 
@@ -328,12 +322,8 @@ hem.sub<-hem[rownames(hem)%in%rownames(leaftraits.full),]
 adonis(hem.sub~leaftraits.full$morphotype+leaftraits.full$meanSLA+leaftraits.full$percN+env.sub$z.age+env.sub$site, by="margin")
 
 
-
-
-
 temp<-hem[env$sampleyear=="2014",]
 temp<-temp[env$vialID%in%rownames(leaftraits.full),]
-
 
 mod.leaf<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+leaftraits$percP)
 mod.leaf.age<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.2014$age)
@@ -347,7 +337,7 @@ m1<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.2
 m2<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+leaftraits$percP+leaftraits$meanWatercontent)
 m3<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.2014$tree.height+env.2014$site+leaftraits$meanWatercontent+leaftraits$percP)
 m4<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.2014$z.age+env.2014$site+leaftraits$meanWatercontent+leaftraits$percP)
-anova(modfull,m4)
+
 
 m5<-cca(hem.2014~leaftraits$percN+leaftraits$morphotype+leaftraits$meanSLA+env.2014$site)
 m6<-cca(hem.2014~leaftraits$morphotype+leaftraits$meanSLA+env.2014$site )       
@@ -360,49 +350,6 @@ anova(m7,m8)
 # model with just site is best
 
 
-# compare contribution of different predictors
-mod.leaf
-mod.leaf.age
-mod.leaf.tree
-mod.leaf.site
-mod.leaf.age.site
-
-
-plot(mod.leaf, type="none")
-points(mod.leaf, display="sites")
-text(mod.leaf, display="species")
-
-anova(mod.leaf.age.site, by = "margin", step=200 )
-
-
-
-ordiplot(mod.leaf)
-ordiplot(mod.leaf.age)
-
-# spread into hybrid versus pubescent/glabrous is explained by SLA, tree height Spread between pubescent and glabrous explained by age 
-
-
-
-
-plot(mod.leaf.age.site, type="none")
-points(mod.leaf.age.site, display="sites", pch=19)
-#text(mod.leaf.age.site, display="species")
-plot(envfit(mod.leaf.age.site, leaftraits[, c(1,2,3,4,6)]))
-
-
-
-vare.cca <- cca(decostand(hem.2014, "total") ~ ., data = leaftraits[,c(1,6)]) 
-
-plot(vare.cca, display = "sites", scaling = 3, type="points")
-text(vare.cca, scaling = 3, display = "bp", pch=4) 
-text(vare.cca, display = "species", scaling = 3, col="red", cex=0.5)
-
-
-
-leaftraits.new<-leaftraits[leaftraits$vialID%in%env.yng$vialID,]
-leaftraits.new<-merge(leaftraits.new,env.yng, by="vialID")
-plot(m9)
-m2
 ```
 
 
@@ -424,18 +371,18 @@ m2
 
 hem$vialID<-rownames(hem)
 temp<-melt(hem)
-trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
+#trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
 
 trial.env<-merge(temp, env[,1:3], by="vialID")
 trial<-dcast(trial.env, site+plot~variable, fun.aggregate = sum,value.var="value")
 
 trial<-trial[trial$site%in%env.both$site,]
 
-
+hem<-hem[,-84]
 rowSums(hem[env$site=="KAIY",])
 
 rowSums(trial[,-c(1:2)])
-table(env$site)
+
 
 ##################################################
 
@@ -447,11 +394,11 @@ trial<-trial[,-c(1:2)]
 moment<-metaMDS(trial, k=3)
 mds.fig <- ordiplot(moment, type = "none", main=" all")
 text(mds.fig, "species", cex=0.5)
-points(mds.fig, "sites", pch = 15, col = "blue", select = env.trial$morphotype.x == "H")
-points(mds.fig, "sites", pch = 19, col = "red", select = env.trial$morphotype.x == "P")
-points(mds.fig, "sites", pch = 19, col = "green", select = env.trial$morphotype.x == "G")
+points(mds.fig, "sites", pch = 15, col = "blue", select = env.trial$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env.trial$morphotype == "P")
+points(mds.fig, "sites", pch = 19, col = "green", select = env.trial$morphotype == "G")
 
-adonis(trial~env.trial$morphotype.x, by="margin")
+adonis(trial~env.trial$morphotype, by="margin")
 
 
 # with 2014 and 2015 data summed pretty similar results to when with twice as many data points
@@ -479,17 +426,43 @@ adonis(trial~leaftraits$meanSLA+env.trial$morphotype, by="margin")
 # mean SLA and morphotype sig
 # regardless of which comes first, together R2 0.28, in both cases ~p<0.01
 
+# what about xy:
+adonis(trial~leaftraits$percN+leaftraits$percP+env.trial$morphotype+leaftraits$meanSLA+xy.2014$lat, by="margin")
 
-mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP)
+
+mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP+xy.2014$lat+xy.2014$long)
+mod3<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent)
+mod5<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP+xy.2014$lat)
+anova(mod3,mod4,mod5)
+anova(mod3,mod4)
+# model shortest is best
+# try removing latitude
+mod6<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP+xy.2014$long)
+anova(mod4,mod6)
+# shortest model is best
 mod3<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent)
 mod2<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN)
-mod<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype)
-anova(mod,mod2,mod3,mod4)
-anova(mod3,mod4)
-# longest model seems best
+anova(mod2,mod3)
+# model 3 seems better
+mod<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$meanWatercontent)
+anova(mod,mod3)
+# no difference
+mod6<-cca(decostand(trial, "total")~leaftraits$meanSLA+leaftraits$meanWatercontent)
+anova(mod,mod6)
+mod7<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype)
+anova(mod,mod7)
+mod8<-cca(decostand(trial, "total")~leaftraits$meanSLA)
+anova(mod4,mod7,mod8)
+mod9<-cca(decostand(trial, "total")~env.trial$morphotype)
+anova(mod4,mod7,mod9)
+
+# can't compare model with just morphotype or just SLA, but F value in the same comparison (full model, model with the two variables and model with just one) is higher for morphotype
+# best model mod9
 
 
-mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP)
+
+
+mod4<-cca(decostand(trial, "total")~leaftraits$meanSLA+env.trial$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$percP+xy.2014$lat+xy.2014$long)
 
 plot(mod4, display = "sites", scaling = 3, type="points")
 text(mod4, scaling = 3, display = "bp", pch=4) 
@@ -504,7 +477,7 @@ mod4
 
 # explore:
 # seems like all of the dimensions around leaftraits are captured by meanSLA (cor strongly with percN, percP), morphotype and water content
-vare.cca <- cca(decostand(trial, "total") ~ ., data = leaftraits[,c(3,4,6)]) 
+vare.cca <- cca(decostand(trial, "total") ~ env.trial$morphotype) 
 
 plot(vare.cca, display = "sites", scaling = 3, type="points")
 text(vare.cca, scaling = 3, display = "bp", pch=4) 
@@ -513,22 +486,6 @@ anova(vare.cca, by = "margin", step=200 )
 
 vare.cca
 # together 30% variation
-
-
-
-
-
-
-
-
-# plot cca with best variables from permanova:
-plot(mod, type="none")
-points(mod, display="sites", pch=19)
-#text(mod, display="species")
-plot(envfit(mod, leaftraits[, c(3,6)]))
-mod
-# together 23% variation
-
 
 
 ```
@@ -570,12 +527,12 @@ color<-c("grey", "blue", "red")
 legend(  "topright", legend=Lab,pch=c(19,15,17),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
 
 # for all sites without double measures (n=97)
-moment<-metaMDS(hem.all, k=3)
-mds.fig <- ordiplot(moment, type = "none", main="all sites")
-text(mds.fig, "species",cex=0.5)
-points(mds.fig, "sites", pch = 19, col = "grey", select = env$morphotype == "G")
-points(mds.fig, "sites", pch = 15, col = "blue", select = env$morphotype == "H")
-points(mds.fig, "sites", pch = 17, col = "red", select = env$morphotype == "P")
+#moment<-metaMDS(hem.all, k=3)
+#mds.fig <- ordiplot(moment, type = "none", main="all sites")
+#text(mds.fig, "species",cex=0.5)
+#points(mds.fig, "sites", pch = 19, col = "grey", select = env$morphotype == "G")
+#points(mds.fig, "sites", pch = 15, col = "blue", select = env$morphotype == "H")
+#points(mds.fig, "sites", pch = 17, col = "red", select = env$morphotype == "P")
 
 ```
 <br>
@@ -669,109 +626,6 @@ How much variation is explained by spatial proximity?
 ```
 
 <br>
-
-
-```{r fourth1}
-library(mvabund)
-
-
-traits$feeding_guild<-factor(traits$feeding_guild)
-leaftraits<-leaftraits[order(rownames(leaftraits)),]
-hem.2014<-hem.2014[order(rownames(hem.2014)),]
-hem.2014<-hem.2014[,colnames(hem.2014)%in%rownames(traits)]
-traits<-traits[order(rownames(traits)),]
-
-mod<-manyglm(mvabund(hem.2014)~leaftraits$percN+leaftraits$percP+leaftraits$morphotype+leaftraits$meanWatercontent+leaftraits$meanSLA, family="negative binomial")
-
-library(lattice)
-a        = max( abs(mod$coefficients) )
-colort   = colorRampPalette(c("blue","white","red")) 
-plot.spp = levelplot(as.matrix(mod$coefficients), xlab="Environmental Variables",
- ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
- scales = list( x= list(rot = 45)))
-
-plot.spp
-
-
-```
-
-#### 2d) Test strength of correlation between insect traits and host plant characteristics?
-
-<br>
-<br>
-
-```{r fourth2}
-ftspp1=traitglm(mvabund(hem.2014),leaftraits,method="glm1path", family="poisson")
-
-library(lattice)
-a        = max( abs(ftspp1$fourth.corner) )
-colort   = colorRampPalette(c("blue","white","red")) 
-plot.spp = levelplot(t(as.matrix(ftspp1$fourth.corner)), xlab="Environmental Variables",
- ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
- scales = list( x= list(rot = 45)))
-
-print(plot.spp)
-
-
-
-
-#levels(traits$polyphagy)<-c(levels(traits$polyphagy) ,"zgeneralist")
-#traits$polyphagy[traits$polyphagy=="generalist"]<-"zgeneralist"
-#traits$polyphagy<-factor(traits$polyphagy)
-#levels(traits$polyphagy)
-
-######################
-
-
-hem.sub<-hem.2014[,colnames(hem.2014)%in%rownames(traits)]
-traits<-traits[rownames(traits)%in%colnames(hem.sub),]
-traits<-traits[order(rownames(traits)),]
-hem.sub<-hem.sub[,order(colnames(hem.sub))]
-# Run 4th corner model
-model4th<-traitglm(hem.2014, leaftraits[,c(1,2,3,4,6)], traits,  method="manyglm", family="negative.binomial")
-
-# call coefficients
-model4th$fourth
-
-# plot coefficients
-a        = max( abs(model4th$fourth.corner),na.rm=T )
-colort   = colorRampPalette(c("blue","white","red")) 
-plot.4th = levelplot(t(as.matrix(model4th$fourth.corner)), xlab="Host Plant Traits",
-              ylab="Species traits", col.regions=colort(100), at=seq(-a, a, length=100),
-                     scales = list( x= list(rot = 45), fontface="bold"))
-
-
-print(plot.4th)
-
-colnames(leaftraits)<-c("% Nitrogen", "% Phosphorus", "trichomes -", "SLA", "watercontent", "C:N")
-levels(leaftraits$`trichomes -`)<-c(levels(leaftraits$`trichomes -`), "none","intermediate", "high")
-leaftraits$`trichomes -`[leaftraits$`trichomes -`=="G"]<- "none"
-leaftraits$`trichomes -`[leaftraits$`trichomes -`=="H"]<- "intermediate"
-leaftraits$`trichomes -`[leaftraits$`trichomes -`=="P"]<- "high"
-leaftraits$`trichomes -`<-factor(leaftraits$`trichomes -`)
-
-
-colnames(traits)<-c("length", "feeding guild - ", "location nymph - ", "hosts - ")
-levels(traits$`hosts:`)<-c(levels(traits$`hosts:`), "generalist","specialist")
-traits$`hosts:`[traits$`hosts:`=="zgeneralist"]<-"generalist"
-traits$`hosts:`<-factor(traits$`hosts:`)
-traits$`hosts:`<-factor(traits$`hosts:`,levels=c("specialist", "generalist"))
-
-
-
-
-######################
-
-
-
-ftSmall=traitglm(hem.2014,leaftraits[,c(1,2,3,4,6)],traits)
-anova.traitglm(ftSmall, nBoot=999, show.time=T)
-# does permutations = work for this function?
-
-model4th<-traitglm(hem.sub, leaftraits, traits,  method="glm1path", family="negative.binomial")
-model4th$fourth
-
-```
 
 
 
