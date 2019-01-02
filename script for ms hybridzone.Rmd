@@ -9,33 +9,59 @@ output: html_document
 <br>
 
 
-Objectives:
+### Outline:
+
+<br>
+
+#### Part I
+(i)	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
+* Results mixed effect models using backward selection and likelihood ratio tests:
+* Results for simple mixed effect models with single predictor:
+(ii)	What host plant traits are drivers of arthropod community composition?
+* PERMANOVA
+* Results GLMER
+
+<br>
+
+#### Part II
+(iii)	What is the importance of Metrosideros polymorpha traits for specific herbivore species?
+* Results GLMER, highlighting the 10 most abundant species
+(iv)	Are there characteristics that unify herbivore species in their response to host plant traits?
+* Results fourth corner
 
 
-##### (i) How do herbivore communities respond to phenotypic variation?
-##### (ii) Which plant traits account for herbivore community responses to host-plant phenotype?
-##### (iii) Which insect traits account for herbivore community responses to host-plant phenotype
+<br>
+
+#### Contents:
+<br>
+* Loading data & scaling predictors
+
+* Summary stats
 
 
+(i)
+* species richness across predictors (all plant traits)
 
+* insect abundance across predictors/plant traits
 
+* figure abundance & richness across morphotype
 
+(ii)
+* nmds figure
 
+* permanova
 
+* glmer model output
 
-Contents:
-- Summary stats
-- species richness across plant traits
-- abundance across plant traits
-- figure abundance & richness across morphotype
-- nmds figure
-- permanova
-- cca? can you find how much variance explained with permanova?
-- glmer figures
-- glmer model output
-- traitglm/fourth corner figure
-- fourth corner output
-- supplemental materials
+(iii)
+* glmer figures
+
+(iv)
+* traitglm/fourth corner figure
+
+* fourth corner output
+
+* supplemental materials
 
 
 <br>
@@ -141,7 +167,7 @@ xy.both<-xy[xy$vialID %in% env.both$vialID,]
 ```
 <br>
 
-```{r scale}
+```{r scaling predictors, echo=F}
 
 
 leaftraits$percN<- scale(leaftraits$percN,center=T,scale=T)
@@ -162,17 +188,12 @@ env.both$DW<-offset(scale(env.both$DW, scale=T, center=T))
 
 
 
-## Results
-
-
-
-
 #### Summary stats
 
 
 
 
-```{r summary}
+```{r Summary}
 
 # number of trees sampled 2014
 nrow(hem.2014)
@@ -215,7 +236,30 @@ summary(lm(env.2014$DW~env.2014$site))
 
 <br>
 
-#### NMDS figure
+#### Part I
+
+
+##### (i)	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
+
+* species richness across predictors (all plant traits)
+
+* insect abundance across predictors/plant traits
+
+* figure abundance & richness across morphotype
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### NMDS figure
 
 <br>
 
@@ -403,145 +447,133 @@ anova(lmer(rowSums(hem.2014)~leaftraits$meanWatercontent+(1|env.2014$site)+offse
 
 
 ```{r}
+#hem.both<-hem.both[,-43]
+
+temp<-hem
+temp$vialID<-rownames(hem)
+temp<-merge(temp,env[,c(1:3)], by="vialID")
+temp<-melt(temp)
+
+
+trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
+
+#trial.env<-merge(temp, env[,1:3], by="vialID")
+#trial<-dcast(trial.env, site+plot~variable, fun.aggregate = sum,value.var="value")
+
+trial<-trial[trial$site%in%env.both$site,]
+
+#hem<-hem[,-84]
+#rowSums(hem[env$site=="KAIY",])
+
+#rowSums(trial[,-c(1:2)])
+
+
+##################################################
+
+p<-ddply(env, .(site,plot),summarize, DW=sum(DW, na.rm=T))
+p<-p[p$site%in%env.both$site,]
+
+env.trial<-trial[,1:2]
+env.trial<-unique(merge(env.trial, env[,c(2,3,10)], by=c("site","plot")))
+trial<-trial[,-c(1:2)]
+trial<-trial[,colSums(trial)>0]
+
+env.trial<-merge(env.trial,p, by=c("site", "plot"))
+env.trial$morphotype<-factor(env.trial$morphotype, levels=c("G", "H", "P"))
+env.2014$morphotype<-factor(env.2014$morphotype, levels=c("G", "H", "P"))
+env.trial$DW<-offset(scale(env.trial$DW, scale=T, center=T))
+
+shan<-exp(ChaoShannon(as.data.frame(t(trial)) )[,2])
+
+mod1<-lmer(shan~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
+
+mod14<-lmer(shan~(1|env.trial$site)+offset(env.trial$DW))
+anova(mod1,mod14)
+
+anova(model1,model14)
+
+
+mod3 = update(mod1, . ~ . -leaftraits$meanWatercontent)
+anova(mod1,mod14,mod3)
+
+mod4 = update(mod3, . ~ . -leaftraits$meanSLA)
+anova(mod1,mod14,mod3,mod4)
+mod4
+
+mod5 = update(mod4, . ~ . -leaftraits$percP)
+mod6 = update(mod4, . ~ . -env.trial$morphotype)
+
+anova(mod14,mod4,mod5,mod6)
+summary(mod5)
+
+mod7 = update(mod5, . ~ . -env.trial$morphotype)
+mod8 = update(mod5, . ~ . -leaftraits$percN)
+anova(mod14,mod5,mod7,mod8)
+summary(mod5)
+
+# mod 5 is best. compared to  null model chisq 11.037, dAIC=5.04, p=0.01153, 6 dF
+anova(mod5,mod14)
+plot(mod5)
+# fitted vs residuals looks good
+
+
+pcsq<-sum(resid(mod5,type="pearson")^2)
+rdf<-df.residual(mod5)
+pchisq(pcsq,rdf,lower.tail=F)
+pcsq/rdf
 
 
 
-shan<-exp(ChaoShannon(as.data.frame(t(hem.2014)) )[,2])
-anova(lm(shan~env.2014$morphotype))
-mod1<-lmer(shan~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod2<-lmer(shan~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod3<-lmer(shan~env.2014$morphotype+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod4<-lmer(shan~env.2014$morphotype+leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod5<-lmer(shan~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod6<-lmer(shan~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
 
-anova(mod1,mod2,mod3,mod4,mod5,mod6)
+simps<-1-ChaoSimpson(as.data.frame(t(trial), na.rm=TRUE) )[,2]
 
-mod7<-lmer(shan~leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod8<-lmer(shan~leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod9<-lmer(shan~leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod10<-lmer(shan~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(mod2,mod7,mod8,mod9,mod10)
-
-mod11<-lmer(shan~leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod12<-lmer(shan~leaftraits$percN+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-mod13<-lmer(shan~leaftraits$percN+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(mod2,mod8,mod11,mod12,mod13)
-
-mod14<-lmer(shan~(1|env.2014$site)+offset(env.2014$DW))
-mod15<-lmer(shan~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-mod16<-lmer(shan~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW))
-anova(mod14,mod15,mod16,mod13,mod2,mod8)
-
-# mod13 is best in explaining exp shannon; ie model with percN, meanSLA and site as random effect
-anova(mod14,mod13)
-summary(mod13)
-
-
-
-
-
-simps<-1-ChaoSimpson(as.data.frame(t(hem.2014), na.rm=TRUE) )[,2]
-
-m1<-lmer(simps~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m2<-lmer(simps~(1|env.2014$site)+offset(env.2014$DW))
+m1<-lmer(simps~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
+m2<-lmer(simps~(1|env.trial$site)+offset(env.trial$DW))
 anova(m1,m2)
 
-m3<-lmer(simps~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m4<-lmer(simps~env.2014$morphotype+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m5<-lmer(simps~env.2014$morphotype+leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m6<-lmer(simps~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m7<-lmer(simps~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(m1,m2,m3,m4,m5,m6,m7)
-
-m8<-lmer(simps~leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m9<-lmer(simps~leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m10<-lmer(simps~leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-m11<-lmer(simps~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(m2,m3,m8,m9,m10,m11)
-
-m12<-lmer(simps~leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-m13<-lmer(simps~leaftraits$percN+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-m14<-lmer(simps~leaftraits$percN+leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-anova(m2,m3,m10,m11,m12,m13,m14)
-
-m15<-lmer(simps~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-m16<-lmer(simps~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW))
-anova(m2,m13,m15,m16,m10)
+# adding leaftraits does not improve upon null model Simpson diversity
+summary(m2)
 
 
-#best model is m10, lowest AIC, low df
-summary(m10)
-anova(m2,m10)
+
 
 
 # estimated richness
-tem<-ChaoRichness(as.data.frame(t(hem.2014)))[,2]
+tem<-ChaoRichness(as.data.frame(t(trial)))[,2]
 
-rich1<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich2<-lmer(tem~(1|env.2014$site)+offset(env.2014$DW))
+rich1<-lmer(tem~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
+rich2<-lmer(tem~(1|env.trial$site)+offset(env.trial$DW))
 anova(rich1,rich2)
 
-rich3<-lmer(tem~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich4<-lmer(tem~env.2014$morphotype+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich5<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich6<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich7<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(rich1,rich2,rich3,rich4,rich5,rich6,rich7)
+rich3 = update(rich1, . ~ . -leaftraits$percP)
+anova(rich1,rich3)
+summary(rich3)
 
-rich8<-lmer(tem~leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich9<-lmer(tem~env.2014$morphotype+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich10<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich11<-lmer(tem~env.2014$morphotype+leaftraits$percN+leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-anova(rich2,rich6,rich8,rich9,rich10,rich11)
+rich4 = update(rich3, . ~ . -leaftraits$meanWatercontent)
+anova(rich2,rich3,rich4)
 
-rich12<-lmer(tem~leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich13<-lmer(tem~leaftraits$percN+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-rich14<-lmer(tem~leaftraits$percN+leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-anova(rich2,rich8,rich12,rich13,rich14,rich6)
+rich5 = update(rich4, . ~ . -leaftraits$meanSLA)
+anova(rich2,rich4,rich5)
 
-rich15<-lmer(tem~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-rich16<-lmer(tem~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW))
-anova(rich2,rich15,rich16,rich14)
+rich6 = update(rich5, . ~ . -leaftraits$percN)
+anova(rich5,rich6)
 
-#rich14 is best, with N and P
-summary(rich14)
-anova(rich2,rich14)
+hist(resid(rich5))
+plot(rich5)
 
 
-# richness does diff sig between morphotype, diversity shannon or simpson does not.
-# ie the difference between glabrous and hybrid and glabrous and pubescent is in rare species- glabrous has more rare species than the other two morphotypes, but once you weigh rare species less, there are no differences in diversity
 
+# rich 5 best
+summary(rich5)
+plot(rich5)
+# chisq 12.192, dAIC=6.19, p=0.006755
+# model has morphotype (sug), percN (NS)
 
-abun1<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun2<-lmer(rowSums(hem.2014)~(1|env.2014$site)+offset(env.2014$DW))
+abun1<-lmer(rowSums(trial)~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
+abun2<-lmer(rowSums(hem.2014)~(1|env.trial$site)+offset(env.trial$DW))
 anova(abun1,abun2)
 
-abun3<-lmer(rowSums(hem.2014)~leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun4<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun7<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun5<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun6<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(abun1,abun2,abun3,abun4,abun5,abun6,abun7)
-
-abun8<-lmer(rowSums(hem.2014)~leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun9<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun10<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun11<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percP+leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW))
-anova(abun1,abun2,abun4,abun5,abun8,abun9,abun10,abun11)
-
-abun12<-lmer(rowSums(hem.2014)~leaftraits$percP+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun13<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun14<-lmer(rowSums(hem.2014)~env.2014$morphotype+leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-anova(abun2,abun10,abun12,abun13,abun14)
-
-abun15<-lmer(rowSums(hem.2014)~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW))
-abun16<-lmer(rowSums(hem.2014)~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW))
-
-anova(abun2,abun12,abun15,abun16)
-#model abun12 is best, with water, phosphorus and site as random
-anova(abun2,abun12)
-summary(abun12)
+# null model best
 
 
 ```
@@ -564,6 +596,7 @@ leaftraits$vialID<-rownames(leaftraits)
 temp<-merge(leaftraits,env[,c(1:3)], by="vialID")
 temp<-temp[,-1]   
 hem.both.long<-hem.both.long[,-1]
+hem.both<-hem.both[,-43]
 
 hem.both.long<-merge(hem.both.long, temp, by=c("site", "plot"))
 
@@ -571,9 +604,21 @@ hem.both.long$percN.standard<-(hem.both.long$percN-mean(hem.both.long$percN))/sd
 hem.both.long$percP.standard<-(hem.both.long$percP-mean(hem.both.long$percP))/sd(hem.both.long$percP)
 hem.both.long$meanSLA.standard<-(hem.both.long$meanSLA-mean(hem.both.long$meanSLA))/sd(hem.both.long$meanSLA)
 hem.both.long$meanWatercontent.standard<-(hem.both.long$meanWatercontent-mean(hem.both.long$meanWatercontent))/sd(hem.both.long$meanWatercontent)
+hem.both.long$DW<-(hem.both.long$DW-mean(hem.both.long$DW, na.rm=T))/sd(hem.both.long$DW, na.rm=T)
+
+
 
 
 ############## analysis data 2014, 2015
+
+modelNall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+percP.standard+vialID+(1+percN.standard|variable)+(1|site)+(1|vialID)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+null=glmer.nb(value~(1|variable)+(1|site)+offset(DW), data=hem.both.long)
+modelPall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+meanWatercontent.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long, glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelSLAall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+meanWatercontent.standard+percP.standard+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long, glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelWaterall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+meanWatercontent.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site)+(1|variable)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+anova(null, modelNall,modelPall,modelSLAall,modelWaterall)
+
+
 
 modelP=glmer(value ~morphotype.x +meanSLA.standard +percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,   family    =poisson)
 qqnorm(resid(modelP))
@@ -583,8 +628,6 @@ qqnorm(resid(modelP))
 modelP=glmer.nb(value ~meanSLA.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
 
 
-
-modelNmorphSLA=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
 modelNmorph=glmer.nb(value ~percN.standard+morphotype.x+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
 modelN=glmer.nb(value ~percN.standard+percP.standard+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
 
