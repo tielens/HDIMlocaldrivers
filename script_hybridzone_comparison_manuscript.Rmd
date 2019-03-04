@@ -269,8 +269,10 @@ adonis(hem.ero~env[env$site=="ERO",]$morphotype, by="margin")
 adonis(hem.olaa~env[env$site=="OLAA",]$morphotype, by="margin")
 
 
-
-
+#write.table(hem.ali, "november_ali.csv", sep=",")
+#write.table(hem.kaiy, "november_kai.csv", sep=",")
+#write.table(hem.ero, "november_ero.csv", sep=",")
+#write.table(hem.olaa, "november_olaa.csv", sep=",")
 ```
 
 <br>

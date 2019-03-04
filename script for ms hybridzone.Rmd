@@ -9,37 +9,49 @@ output: html_document
 <br>
 
 
-### Outline:
+## Outline:
 
 <br>
 
 #### Part I
-(i)	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
+
+( i )	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
+
 * Results mixed effect models using backward selection and likelihood ratio tests:
 * Results for simple mixed effect models with single predictor:
-(ii)	What host plant traits are drivers of arthropod community composition?
+
+( ii )	What plant traits are drivers of herbivore community composition in response to host phenotype?
+
+* NMDS
 * PERMANOVA
 * Results GLMER
 
 <br>
 
 #### Part II
-(iii)	What is the importance of Metrosideros polymorpha traits for specific herbivore species?
+
+( iii )	What is the importance of Metrosideros polymorpha traits for specific herbivore species?
+
 * Results GLMER, highlighting the 10 most abundant species
-(iv)	Are there characteristics that unify herbivore species in their response to host plant traits?
+
+( iv )	Are there characteristics that unify herbivore species in their response to host plant traits?
+
 * Results fourth corner
 
 
+
 <br>
 
-#### Contents:
+## Contents:
 <br>
+
 * Loading data & scaling predictors
 
 * Summary stats
 
 
 (i)
+
 * species richness across predictors (all plant traits)
 
 * insect abundance across predictors/plant traits
@@ -47,6 +59,7 @@ output: html_document
 * figure abundance & richness across morphotype
 
 (ii)
+
 * nmds figure
 
 * permanova
@@ -54,16 +67,24 @@ output: html_document
 * glmer model output
 
 (iii)
+
 * glmer figures
 
 (iv)
+
 * traitglm/fourth corner figure
 
 * fourth corner output
 
 * supplemental materials
 
+<br>
+<br>
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 <br>
 <br>
 
@@ -83,6 +104,8 @@ library(reshape2)
 library(lme4)
 library(gridExtra)
 library(lmerTest)
+
+
 
 #try species by site dataset, including leps and coleoptera
 setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
@@ -182,16 +205,18 @@ leaftraits.full$meanSLA<- scale(leaftraits.full$meanSLA,center=T,scale=T)
 leaftraits.full$meanWatercontent<- scale(leaftraits.full$meanWatercontent,center=T,scale=T)
 leaftraits.full$CN<- scale(leaftraits.full$CN,center=T,scale=T)
 
-env.2014$DW<-offset(scale(env.2014$DW, scale=T, center=T))
-env.both$DW<-offset(scale(env.both$DW, scale=T, center=T))
+#env.2014$DW<-offset(scale(env.2014$DW, scale=T, center=T))
+#env.both$DW<-offset(scale(env.both$DW, scale=T, center=T))
 ```
 
-
+<br>
+<br>
 
 #### Summary stats
 
 
-
+<br>
+<br>
 
 ```{r Summary}
 
@@ -231,15 +256,22 @@ summary(lm(env.2014$DW~env.2014$site))
 ```
 <br>
 
+########################################################################################################################
+########################################################################################################################
 
+########################################################################################################################
+########################################################################################################################
 <br>
 
 <br>
 
-#### Part I
+## Part I
+
+<br>
+<br>
 
 
-##### (i)	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
+### (i)	How do plant phenotypic traits affect phytophagous insect abundance and diversity?
 
 * species richness across predictors (all plant traits)
 
@@ -247,23 +279,222 @@ summary(lm(env.2014$DW~env.2014$site))
 
 * figure abundance & richness across morphotype
 
-
-
-
-
-
-
-
-
-
-
-
-
-##### NMDS figure
+<br>
+<br>
+<br>
+########################################################################################################################
+########################################################################################################################
 
 <br>
 
-```{r}
+##### Insect richness across predictors
+
+<br>
+
+testing of single trait (individually)
+
+<br>
+```{r, warning=F}
+shan<-exp(ChaoShannon(as.data.frame(t(hem.2014)) )[,2])
+simps<-1-ChaoSimpson(as.data.frame(t(hem.2014), na.rm=TRUE) )[,2]
+tem<-ChaoRichness(as.data.frame(t(hem.2014)))[,2]
+
+
+# Shannon diversity:
+### no relationship: morphotype, perc P, mean SLA, mean Water
+### percentage N:
+anova(lmer(shan~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
+# sig nitrogen, F=5.3329, p=0.04213
+
+
+
+# Simpson diversity:
+### no relationship : morphotype, perc P, mean SLA, mean water
+anova(lmer(simps~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
+# sig nitrogen F=11.548, p=0.00885
+
+# Species richness:
+### no relationship
+anova(lmer(tem~env.2014$morphotype+(1|env.2014$site)+offset(env.2014$DW)))
+anova(lmer(tem~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
+anova(lmer(tem~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
+anova(lmer(tem~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW)))
+anova(lmer(tem~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW)))
+
+# Abundance:
+### no relationship : morphotype, percentage nitrogen, mean SLA, mean water
+### percentage phosphorus:
+anova(lmer(rowSums(hem.2014)~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
+## sig phosphorus F=6.2651, p=0.03169
+
+```
+
+<br>
+<br>
+
+
+```{r model diversity}
+# Getting data set up so that we include observations from 2014 & 2015 aggregated per tree
+
+#hem.both<-hem.both[,-43]
+
+temp<-hem
+temp$vialID<-rownames(hem)
+temp<-merge(temp,env[,c(1:3)], by="vialID")
+temp<-melt(temp)
+
+
+trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
+trial<-trial[trial$site%in%env.both$site,]
+
+p<-ddply(env, .(site,plot),summarize, DW=sum(DW, na.rm=T))
+p<-p[p$site%in%env.both$site,]
+
+env.trial<-trial[,1:2]
+env.trial<-unique(merge(env.trial, env[,c(2,3,10)], by=c("site","plot")))
+trial<-trial[,-c(1:2)]
+trial<-trial[,colSums(trial)>0]
+
+env.trial<-merge(env.trial,p, by=c("site", "plot"))
+env.trial$morphotype<-factor(env.trial$morphotype, levels=c("G", "H", "P"))
+env.2014$morphotype<-factor(env.2014$morphotype, levels=c("G", "H", "P"))
+#env.trial$DW<-offset(scale(env.trial$DW, scale=T, center=T))
+
+
+##############################################################
+##############################################################
+
+
+# Model selection
+
+shan<-exp(ChaoShannon(as.data.frame(t(trial)) )[,2])
+
+mod1<-lmer(shan~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(log(env.trial$DW)))
+
+mod14<-lmer(shan~(1|env.trial$site)+offset(log(env.trial$DW)))
+anova(mod1,mod14)
+# null model has lowest AIC
+qqnorm(resid(mod14))
+plot(mod14)
+
+pcsq<-sum(resid(mod14,type="pearson")^2)
+rdf<-df.residual(mod14)
+pchisq(pcsq,rdf,lower.tail=F)
+pcsq/rdf
+
+# ~10 ratio
+
+
+
+simps<-1-ChaoSimpson(as.data.frame(t(trial), na.rm=TRUE) )[,2]
+
+m1<-lmer(simps~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(log(env.trial$DW)))
+m2<-lmer(simps~(1|env.trial$site)+offset(log(env.trial$DW)))
+anova(m1,m2)
+
+# adding leaftraits does not improve upon null model Simpson diversity
+summary(m2)
+qqnorm(resid(m2))
+hist(resid(m2))
+
+
+
+# estimated richness
+tem<-ChaoRichness(as.data.frame(t(trial)))[,2]
+
+rich1<-lmer(tem~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(log(env.trial$DW)))
+rich2<-lmer(tem~(1|env.trial$site)+offset(log(env.trial$DW)))
+anova(rich1,rich2)
+
+# rich1 is lower AIC
+rich3<-lmer(tem~env.trial$morphotype+leaftraits$percN+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(log(env.trial$DW)))
+
+rich4<-lmer(tem~env.trial$morphotype+leaftraits$percN+leaftraits$meanSLA+(1|env.trial$site)+offset(log(env.trial$DW)))
+rich5<-lmer(tem~env.trial$morphotype+leaftraits$percN+(1|env.trial$site)+offset(log(env.trial$DW)))
+rich6<-lmer(tem~env.trial$morphotype+(1|env.trial$site)+offset(log(env.trial$DW)))
+
+summary(rich5)
+qqnorm(resid(rich5))
+```
+<br>
+<br>
+
+###### Insect Abundance
+
+<br>
+<br>
+
+```{r model abundance}
+
+
+abun1<-lmer(rowSums(trial)~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(log(env.trial$DW)))
+abun2<-lmer(rowSums(trial)~(1|env.trial$site)+offset(log(env.trial$DW)))
+anova(abun1,abun2)
+
+# null model best
+
+abun3<-lmer(rowSums(hem.2014)~env.trial$morphotype+(1|env.trial$site)+offset(log(env.trial$DW)))
+anova(abun2,abun3)
+
+```
+
+<br>
+<br>
+
+###### Figures of richness and abundance per morphotype
+
+<br>
+<br>
+
+```{r richness figure}
+
+morph<- factor(
+  env.both$morphotype, 
+  labels = c("Glabrous", "Intermediate", "Pubescent"))
+
+par(mfrow=c(1,2))
+plot(rowSums(hem.both)~morph,  ylab="Abundance", xlab="tree morphotype" )
+plot(ChaoRichness(as.data.frame(t(hem.both)), datatype = "abundance")[,2]~morph,  ylab="Species Richness", xlab="tree morphotype" )
+
+
+#summary(lm(specnumber(trial)~factor(env.trial$morphotype)))
+summary(lm(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~factor(env.both$morphotype)))
+anova(  lmer(   rowSums(hem.both)~   as.factor(env.both$morphotype)+ (1|env.both$site)   )  )
+summary(lm(rowSums(hem.2014)~leaftraits$percP))
+summary(  lmer(   ChaoRichness(as.data.frame(t(hem.both)), datatype="abundance")[,2]~   as.factor(env.both$morphotype)+ (1|env.both$site)   )  )
+
+
+
+par(mfrow=c(1,1))
+plot(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~env.both$DW,  ylab="exp shannon index (hill 1)", xlab="sampling effort (DW in g)")
+
+plot(rowSums(hem.2014)~leaftraits$percP,  ylab="Insect Abundance", xlab="Foliar Phosphorus Content (%)", pch=16)
+```
+
+
+########################################################################################################################
+########################################################################################################################
+
+
+##### (ii)	What plant traits are drivers of herbivore community responses to host phenotype?
+
+* NMDS
+
+* PERMANOVA
+
+* Results GLMER
+
+<br>
+
+########################################################################################################################
+########################################################################################################################
+<br>
+
+#### NMDS figure
+
+<br>
+
+```{r nmds figure}
 hem.ero<-hem[env$site=="ERO",]
 hem.ali<-hem[env$site=="ALI",]
 hem.kaiy<-hem[env$site=="KAIY",]
@@ -314,61 +545,11 @@ adonis(hem.olaa~env[env$site=="OLAA",]$morphotype, by="margin")
 
 <br>
 
-
-
-
 <br>
 
 
 
-
-#### Figures of richness and abundance per morphotype
-
-
-```{r}
-par(mfrow=c(1,2))
-
-
-plot(rowSums(hem.both)~factor(env.both$morphotype),  ylab="Abundance", xlab="tree morphotype" )
-plot(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~factor(env.both$morphotype),  ylab="Exp Estimated Shannon (hill 1)", xlab="tree morphotype" )
-
-
-#summary(lm(specnumber(trial)~factor(env.trial$morphotype)))
-summary(lm(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~factor(env.both$morphotype)))
-summary(lm(rowSums(hem.both)~factor(env.both$morphotype)))
-summary(lm(rowSums(hem.2014)~leaftraits$percP))
-
-
-par(mfrow=c(1,1))
-plot(exp(ChaoShannon(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~env.both$DW,  ylab="exp shannon index (hill 1)", xlab="sampling effort (DW in g)")
-
-plot(rowSums(hem.2014)~leaftraits$percP,  ylab="Insect Abundance", xlab="Foliar Phosphorus Content (%)", pch=16)
-```
-
-
-
-
-
-
-
-
-
-- glmer figures
-- glmer model output
-- traitglm/fourth corner figure
-- fourth corner output
-- supplemental materials
-
-
-
-
-
-
-
-
-
-
-#### (ii) Which plant traits account for herbivore community responses to host-plant phenotype?
+#### Permanova, RDA and variance partitioning
 
 
 
@@ -386,13 +567,16 @@ p
 anova(p)
 
 
-adonis(hem.2014~env.2014$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP, by="margin")
+adonis(hem.2014~env.2014$morphotype+leaftraits$percN+leaftraits$meanWatercontent+leaftraits$meanSLA+leaftraits$percP+leaftraits$CN, by="margin")
 
 
 
-
+adonis(hem.2014~leaftraits$percN+leaftraits$percP+env.2014$morphotype, by="margin")
 
 ```
+
+
+
 
 <br>
 
@@ -403,180 +587,6 @@ adonis(hem.2014~env.2014$morphotype+leaftraits$percN+leaftraits$meanWatercontent
 #########################################################################################################
 <br>
 
-#### (iii) What plant traits drive diversity and abundance across these four sites?
-
-<br>
-##### single predictor models
-
-```{r}
-shan<-exp(ChaoShannon(as.data.frame(t(hem.2014)) )[,2])
-simps<-1-ChaoSimpson(as.data.frame(t(hem.2014), na.rm=TRUE) )[,2]
-tem<-ChaoRichness(as.data.frame(t(hem.2014)))[,2]
-
-
-
-anova(lmer(shan~env.2014$morphotype+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(shan~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
-# sig nitrogen, F=5.3329, p=0.04213
-anova(lmer(shan~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(shan~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(shan~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW)))
-
-
-anova(lmer(simps~env.2014$morphotype+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(simps~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
-# sig nitrogen F=11.548, p=0.00885
-anova(lmer(simps~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(simps~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(simps~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW)))
-
-anova(lmer(tem~env.2014$morphotype+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(tem~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(tem~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(tem~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(tem~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW)))
-
-anova(lmer(rowSums(hem.2014)~env.2014$morphotype+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(rowSums(hem.2014)~leaftraits$percN+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(rowSums(hem.2014)~leaftraits$percP+(1|env.2014$site)+offset(env.2014$DW)))
-## sig phosphorus F=6.2651, p=0.03169
-anova(lmer(rowSums(hem.2014)~leaftraits$meanSLA+(1|env.2014$site)+offset(env.2014$DW)))
-anova(lmer(rowSums(hem.2014)~leaftraits$meanWatercontent+(1|env.2014$site)+offset(env.2014$DW)))
-```
-
-
-
-```{r}
-#hem.both<-hem.both[,-43]
-
-temp<-hem
-temp$vialID<-rownames(hem)
-temp<-merge(temp,env[,c(1:3)], by="vialID")
-temp<-melt(temp)
-
-
-trial<-dcast(temp, site+plot~variable, fun.aggregate = sum,value.var="value")
-
-#trial.env<-merge(temp, env[,1:3], by="vialID")
-#trial<-dcast(trial.env, site+plot~variable, fun.aggregate = sum,value.var="value")
-
-trial<-trial[trial$site%in%env.both$site,]
-
-#hem<-hem[,-84]
-#rowSums(hem[env$site=="KAIY",])
-
-#rowSums(trial[,-c(1:2)])
-
-
-##################################################
-
-p<-ddply(env, .(site,plot),summarize, DW=sum(DW, na.rm=T))
-p<-p[p$site%in%env.both$site,]
-
-env.trial<-trial[,1:2]
-env.trial<-unique(merge(env.trial, env[,c(2,3,10)], by=c("site","plot")))
-trial<-trial[,-c(1:2)]
-trial<-trial[,colSums(trial)>0]
-
-env.trial<-merge(env.trial,p, by=c("site", "plot"))
-env.trial$morphotype<-factor(env.trial$morphotype, levels=c("G", "H", "P"))
-env.2014$morphotype<-factor(env.2014$morphotype, levels=c("G", "H", "P"))
-env.trial$DW<-offset(scale(env.trial$DW, scale=T, center=T))
-
-shan<-exp(ChaoShannon(as.data.frame(t(trial)) )[,2])
-
-mod1<-lmer(shan~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
-
-mod14<-lmer(shan~(1|env.trial$site)+offset(env.trial$DW))
-anova(mod1,mod14)
-
-anova(model1,model14)
-
-
-mod3 = update(mod1, . ~ . -leaftraits$meanWatercontent)
-anova(mod1,mod14,mod3)
-
-mod4 = update(mod3, . ~ . -leaftraits$meanSLA)
-anova(mod1,mod14,mod3,mod4)
-mod4
-
-mod5 = update(mod4, . ~ . -leaftraits$percP)
-mod6 = update(mod4, . ~ . -env.trial$morphotype)
-
-anova(mod14,mod4,mod5,mod6)
-summary(mod5)
-
-mod7 = update(mod5, . ~ . -env.trial$morphotype)
-mod8 = update(mod5, . ~ . -leaftraits$percN)
-anova(mod14,mod5,mod7,mod8)
-summary(mod5)
-
-# mod 5 is best. compared to  null model chisq 11.037, dAIC=5.04, p=0.01153, 6 dF
-anova(mod5,mod14)
-plot(mod5)
-# fitted vs residuals looks good
-
-
-pcsq<-sum(resid(mod5,type="pearson")^2)
-rdf<-df.residual(mod5)
-pchisq(pcsq,rdf,lower.tail=F)
-pcsq/rdf
-
-
-
-
-simps<-1-ChaoSimpson(as.data.frame(t(trial), na.rm=TRUE) )[,2]
-
-m1<-lmer(simps~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
-m2<-lmer(simps~(1|env.trial$site)+offset(env.trial$DW))
-anova(m1,m2)
-
-# adding leaftraits does not improve upon null model Simpson diversity
-summary(m2)
-
-
-
-
-
-# estimated richness
-tem<-ChaoRichness(as.data.frame(t(trial)))[,2]
-
-rich1<-lmer(tem~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
-rich2<-lmer(tem~(1|env.trial$site)+offset(env.trial$DW))
-anova(rich1,rich2)
-
-rich3 = update(rich1, . ~ . -leaftraits$percP)
-anova(rich1,rich3)
-summary(rich3)
-
-rich4 = update(rich3, . ~ . -leaftraits$meanWatercontent)
-anova(rich2,rich3,rich4)
-
-rich5 = update(rich4, . ~ . -leaftraits$meanSLA)
-anova(rich2,rich4,rich5)
-
-rich6 = update(rich5, . ~ . -leaftraits$percN)
-anova(rich5,rich6)
-
-hist(resid(rich5))
-plot(rich5)
-
-
-
-# rich 5 best
-summary(rich5)
-plot(rich5)
-# chisq 12.192, dAIC=6.19, p=0.006755
-# model has morphotype (sug), percN (NS)
-
-abun1<-lmer(rowSums(trial)~env.trial$morphotype+leaftraits$percN+leaftraits$percP+leaftraits$meanSLA+leaftraits$meanWatercontent+(1|env.trial$site)+offset(env.trial$DW))
-abun2<-lmer(rowSums(hem.2014)~(1|env.trial$site)+offset(env.trial$DW))
-anova(abun1,abun2)
-
-# null model best
-
-
-```
 
 <br>
 
@@ -587,31 +597,48 @@ anova(abun1,abun2)
 
 #### GLMER model selection
 
-```{r}
+<br>
+<br>
+```{r GLMER, eval=F}
+
+
 # dataset with 2014 and 2015 data
 hem.both$vialID<-rownames(hem.both)
 hem.both.long<-melt(hem.both)
 hem.both.long<-merge(env.both, hem.both.long, by="vialID")
 leaftraits$vialID<-rownames(leaftraits)
 temp<-merge(leaftraits,env[,c(1:3)], by="vialID")
-temp<-temp[,-1]   
+#temp<-temp[,-1]   
 hem.both.long<-hem.both.long[,-1]
 hem.both<-hem.both[,-43]
 
 hem.both.long<-merge(hem.both.long, temp, by=c("site", "plot"))
 
-hem.both.long$percN.standard<-(hem.both.long$percN-mean(hem.both.long$percN))/sd(hem.both.long$percN)
-hem.both.long$percP.standard<-(hem.both.long$percP-mean(hem.both.long$percP))/sd(hem.both.long$percP)
-hem.both.long$meanSLA.standard<-(hem.both.long$meanSLA-mean(hem.both.long$meanSLA))/sd(hem.both.long$meanSLA)
-hem.both.long$meanWatercontent.standard<-(hem.both.long$meanWatercontent-mean(hem.both.long$meanWatercontent))/sd(hem.both.long$meanWatercontent)
-hem.both.long$DW<-(hem.both.long$DW-mean(hem.both.long$DW, na.rm=T))/sd(hem.both.long$DW, na.rm=T)
 
+```
+
+```{r}
+
+# Loading the streamlined data for Dan
+
+#setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
+#hem.both.long<-read.table("HDIMlocaldrivers.csv", header=TRUE, sep=",")
 
 
 
 ############## analysis data 2014, 2015
 
-modelNall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+percP.standard+vialID+(1+percN.standard|variable)+(1|site)+(1|vialID)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+
+
+modelP=glmer(value ~morphotype.x +meanSLA.standard +percP.standard+(1+percP.standard|variable)+(1|site)+offset(log(DW)),  data    =hem.both.long,   family    =poisson)
+qqnorm(resid(modelP))
+# overdispersed? negative binomial more appropriate
+
+
+######## CHANGE OFFSET log(DW)
+
+
+modelNall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+percP.standard+(1+percN.standard|variable)+(1|site)+(1|vialID)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 null=glmer.nb(value~(1|variable)+(1|site)+offset(DW), data=hem.both.long)
 modelPall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+meanWatercontent.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long, glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 modelSLAall=glmer.nb(value ~percN.standard+meanSLA.standard+morphotype.x+meanWatercontent.standard+percP.standard+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long, glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
@@ -620,47 +647,45 @@ anova(null, modelNall,modelPall,modelSLAall,modelWaterall)
 
 
 
-modelP=glmer(value ~morphotype.x +meanSLA.standard +percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,   family    =poisson)
-qqnorm(resid(modelP))
-# overdispersed? negative binomial more appropriate
+
 
 # best model is modelP, including morphotype, SLA and P, with species specific response to P and site also as random effect
-modelP=glmer.nb(value ~meanSLA.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
+modelP=glmer.nb(value ~meanSLA.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 
 
-modelNmorph=glmer.nb(value ~percN.standard+morphotype.x+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelN=glmer.nb(value ~percN.standard+percP.standard+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
+modelNmorph2=glmer.nb(value ~morphotype.x+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelN=glmer.nb(value ~percN.standard+percP.standard+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 
-modelPalone=glmer.nb(value ~percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelPmorph=glmer.nb(value ~morphotype.x+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelPSLA=glmer.nb(value ~meanSLA.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-
-
-modelwP=glmer.nb(value ~morphotype.x+percP.standard+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-morph=glmer.nb(value ~morphotype.x+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-
-modelSLAmorph=glmer.nb(value ~morphotype.x+meanSLA.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelW=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelSLA=glmer.nb(value ~meanSLA.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelWfull=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelnone<-glmer.nb(value ~(1|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelmorph<-glmer.nb(value ~morphotype.x+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long)
+modelPalone=glmer.nb(value ~percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelPmorph=glmer.nb(value ~morphotype.x+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelPSLA=glmer.nb(value ~meanSLA.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 
 
-anova(modelP,modelPSLA,modelNmorphSLA,modelN, modelNmorph,modelPalone, modelPmorph,modelwP,morph, modelSLAmorph,modelW, modelSLA, modelWfull, modelnone, modelmorph)
+modelwP=glmer.nb(value ~morphotype.x+percP.standard+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+morph=glmer.nb(value ~morphotype.x+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+
+modelSLAmorph=glmer.nb(value ~morphotype.x+meanSLA.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelW=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelSLA=glmer.nb(value ~meanSLA.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelWfull=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelnone<-glmer.nb(value ~(1|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelmorph<-glmer.nb(value ~morphotype.x+(1|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+
+
+anova(modelP,modelPSLA,modelN, modelNmorph,modelPalone, modelPmorph,modelwP,morph, modelSLAmorph,modelW, modelSLA, modelWfull, modelnone, modelmorph)
 
 # best model modelW ie SLA random effect
-modelWN=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelWPSLA=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
-modelWNP=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)
+modelWN=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelWPSLA=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
+modelWNP=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+meanSLA.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
 
 anova(modelW,modelWN,modelWPSLA,modelWNP,modelnone)
   
 # modelWNP is best
-mN=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN+percP+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)  
-mP=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)   
-mW=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long)   
-mMorph=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+morphotype.x|variable)+(1|site)+offset(DW),  data    =hem.both.long) 
+mN=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN+percP+(1+percN.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))  
+mP=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+percP.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))   
+mW=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+meanWatercontent.standard|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))   
+mMorph=glmer.nb(value ~meanSLA.standard+meanWatercontent.standard+morphotype.x+percN.standard+percP.standard+(1+morphotype.x|variable)+(1|site)+offset(DW),  data    =hem.both.long ,glmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000))) 
 
 anova(modelWNP,mN,mP,mW,mMorph)
 # chisq p value =1 (???) but lowest AIC is modelWNP
@@ -675,6 +700,8 @@ summary(modelWNP)
 dotplot(ranef(modelWNP, condVar=T))
 
 
+# Testing for overdispersion:
+
 pcsq<-sum(resid(modelWNP,type="pearson")^2)
 rdf<-df.residual(modelWNP)
 pchisq(pcsq,rdf,lower.tail=F)
@@ -683,18 +710,54 @@ pcsq/rdf
 
 
 
-
-
-
-
-
-
-
 library(blmeco)
 dispersion_glmer(modelWNP)
 # alternatively could use package DHArma
 
+```
 
+<br>
+<br>
+#########################################################################################################
+#########################################################################################################
+
+#########################################################################################################
+#########################################################################################################
+<br>
+<br>
+
+## Part II
+
+<br>
+<br>
+(iii) What is the importance of Metrosideros polymorpha traits for specific herbivore species?
+
+* glmer figures
+
+
+
+(iv) Are there characteristics that unify herbivore species in their response to host plant traits?
+
+* fourth corner output
+
+* traitglm/fourth corner figure
+
+<br>
+<br>
+
+
+#########################################################################################################
+#########################################################################################################
+
+
+
+#### Generate figures for 10 most abundant species
+
+
+<br>
+<br>
+
+```{r figures for top 10, warning=F}
 
 ################# Figures 2015 and 2014 data
 
@@ -768,8 +831,169 @@ grid.arrange(plotSLA,plotwater,plotN,plotP)
 ```
 
 
+<br>
+
+```{r}
+library("glmmTMB") 
+library("bbmle") 
+library("ggplot2")
+
+zibinom_Nmorph <- glmmTMB(value~ morphotype.x+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_N <- glmmTMB(value~ +(1|site)+(percN|variable)+offset(DW), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_morph <- glmmTMB(value~ morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+anova(zibinom_Nmorph, zibinom_N, zibinom_morph)
+
+# percN and morph is best
 
 
+# testing full model- does not converge. Testing models of all combinations missing 1 predictor
+zibinom_1 <- glmmTMB(value~ percP+percN+meanSLA+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+#zibinom_2 <- glmmTMB(value~ percP+percN+meanWatercontent+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2) # no convergence
+zibinom_3 <- glmmTMB(value~ percP+meanWatercontent+meanSLA+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_4 <- glmmTMB(value~ meanWatercontent+percN+meanSLA+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_5 <- glmmTMB(value~ percP+percN+meanSLA+meanWatercontent+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_1,zibinom_3,zibinom_4,zibinom_5)
+# 1 and 4 pretty comparable
+
+
+# One by one removing predictors from model 4
+zibinom_6 <- glmmTMB(value~ percN+meanSLA+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~., family=nbinom2)
+zibinom_7 <- glmmTMB(value~ percP+meanSLA+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_8 <- glmmTMB(value~ percP+percN+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_9 <- glmmTMB(value~ percP+percN+meanSLA+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_1,zibinom_6,zibinom_7,zibinom_8, zibinom_9)
+
+# 8 is best
+
+zibinom_10 <- glmmTMB(value~ percN+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_11 <- glmmTMB(value~ percP+morphotype.x+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_12 <- glmmTMB(value~ percP+percN+offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_10,zibinom_11,zibinom_12,zibinom_8)
+
+# best model is 8
+# model with percP, percN, morphotype
+
+zibinom_P <- glmmTMB(value~ percP+percN+morphotype.x+offset(DW)+(1|site)+(percP|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_N <- glmmTMB(value~ percP+percN+morphotype.x+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_morph <- glmmTMB(value~ percP+percN+morphotype.x+offset(DW)+(1|site)+(morphotype.x|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_P,zibinom_N,zibinom_morph, zibinom_8)
+# model with species slopes varying with N is best
+
+# with species specific slopes on N, should I remove more predictors?
+zibinom_N1 <- glmmTMB(value~ percN+morphotype.x+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_N2 <- glmmTMB(value~ percP+morphotype.x+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinom_N3 <- glmmTMB(value~ percP+percN+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_N,zibinom_N1,zibinom_N2, zibinom_N3)
+
+# with species specific slopes on N, should I add more predictors?
+zibinomN_SLA <- glmmTMB(value~ percP+percN+morphotype.x+meanSLA+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+zibinomN_water <- glmmTMB(value~ percP+percN+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(zibinom_N,zibinomN_SLA,zibinomN_water,zibinom_8)
+# slightly better with water 
+
+zibinomN_water2 <- glmmTMB(value~ percP+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+summary(zibinomN_water)
+
+
+# all predictors absurdly highly significant- what is going wrong? also dispersion parameter seems to indicate some overdispersion
+
+
+
+
+
+m_none <- glmmTMB(value~ offset(DW)+(1|site)+(1|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+m_N1 <- glmmTMB(value~ percN+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_P1 <- glmmTMB(value~ percN+offset(DW)+(1|site)+(percP|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_Water <- glmmTMB(value~ percN+offset(DW)+(1|site)+(meanWatercontent|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA <- glmmTMB(value~ offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+#m_morph <- glmmTMB(value~ offset(DW)+(1|site)+(morphotype.x|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+# convergence problems^^^
+anova(m_none, m_N, m_P, m_SLA, m_Water, m_N1, m_P1,m_SLA1, m_Water1)
+
+
+
+m_SLA2 <- glmmTMB(value~ percP+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA3 <- glmmTMB(value~ percN+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA4 <- glmmTMB(value~ morphotype.x+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA5 <- glmmTMB(value~ meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(m_SLA2, m_SLA3, m_SLA4, m_SLA5, m_SLA)
+
+# m_SLA4 is best
+
+m_SLA6 <- glmmTMB(value~ morphotype.x+percN+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA7 <- glmmTMB(value~ morphotype.x+percP+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA8 <- glmmTMB(value~ morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(m_SLA4,m_SLA6,m_SLA7, m_SLA8)
+
+# m_SLA8 is best
+
+m_SLA9 <- glmmTMB(value~ percP+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+m_SLA10 <- glmmTMB(value~ percN+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+
+anova(m_SLA8,m_SLA9,m_SLA10)
+
+# m_SLA9 is best
+
+m_SLA11 <- glmmTMB(value~ percN+percP+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+# model convergence problem ^^
+
+m_SLA12 <- glmmTMB(value~ meanSLA+percP+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+anova(m_SLA12,m_SLA9)
+##############################################################
+# forward selection best model:
+m_SLA9 <- glmmTMB(value~ percP+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(meanSLA|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+summary(m_SLA9)
+
+# backward selection:
+zibinomN_water <- glmmTMB(value~ percP+percN+morphotype.x+meanWatercontent+offset(DW)+(1|site)+(percN|variable), data=hem.both.long,   ziformula=~1, family=nbinom2)
+summary(zibinomN_water)
+
+
+qqnorm(resid(m_SLA9, condVar=T))
+qqnorm(resid(m_none, condVar=T))
+# def not good fit
+
+
+
+
+mod2 <- glmmTMB(value~ morphotype.x+percN+offset(DW)+(1|site)+(percN|variable)+(1|vialID), data=hem.both.long,   ziformula=~1, family=nbinom2)
+summary(mod)
+anova(mod,mod2)
+qqnorm(resid(mod, condVar=T))
+
+
+
+
+
+
+m1 <- glmer(value ~ morphotype.x+(1|site)+(percN|variable)+offset(DW), data = hem.both.long, family = negbinomial(link=logit))
+
+
+
+library(effects) 
+plot(allEffects(m1))
+
+confint(modelNmorph)
+```
+
+
+
+
+<br>
+<br>
+
+
+##### Fourth corner: see script hybridzone nov
 
 
 

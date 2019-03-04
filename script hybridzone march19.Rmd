@@ -34,10 +34,9 @@ I set out with the following objectives:
 <br>
 
 
-```{r Load_data&packages, echo=FALSE, warning=FALSE, message=FALSE}
+
+```{r }
 rm(list=ls())
-
-
 library(ggplot2)
 library(scales)
 library(lattice)
@@ -60,92 +59,140 @@ traits<-read.table("trait species march19.csv", header=T, sep=",")
 setwd("/Users/elsketielens/phd/data/HDIM/branch clipping/data/data for R")
 leaftraits<-read.table("leaf traits july16.csv", header=TRUE, sep=",")
 rownames(env)<-env$vialID
+```
 
 
-# Subset to only four sites, for both years
-env.both<-env[env$site!="ERY",]
-env.both<-env.both[env.both$site!=c("TPR"),]
-env.both<-env.both[env.both$site!=c("KAIO"),]
-env.both<-env.both[env.both$site!=c("THU"),]
-env.both<-env.both[env.both$site!=c("LH"),]
-env.both<-env.both[env.both$site!=c("LY"),]
-env.both<-env.both[env.both$site!=c("L65"),]
-env.both<-env.both[env.both$site!=c("KOHY"),]
-env.both<-env.both[env.both$site!=c("KOHO"),]
-env.both<-env.both[env.both$island=="Hawaii",]
+```{r}
+##############
 
-# create env data for 2014
+# Remove hemiptera that are not phytophagous
+traits<- traits[traits$spec.code!="NAB_OSC",]
+traits<- traits[traits$spec.code!="COC_SP",]
+traits<- traits[traits$spec.code!="PHI_SPU",]
+
+hem<- hem[,colnames(hem)!="NAB_OSC",]
+hem<- hem[,colnames(hem)!="COC_SP",]
+hem<- hem[,colnames(hem)!="PHI_SPU",]
+# confirm that was all predators:
+table(traits$feeding.guild)
+traits$feeding.guild<-factor(traits$feeding.guild)
+# make sure to remover predator from the levels, or mvabund will give problems
+levels(traits$feeding.guild)
+
+
+##############
+
+
+# Subset to include sites in hybrid zones with trees of clear morphotypes: ERO, ALI, KAIY, OLAA
+
+env<-env[env$vialID%in%rownames(hem),]
+env.both<-env[env$site=="ERO"|env$site=="ALI"|env$site=="OLAA"|env$site=="KAIY",]
+env.both.kaio<-env[env$site=="ERO"|env$site=="ALI"|env$site=="OLAA"|env$site=="KAIY"|env$site=="KAIO",]
 env.2014<-env.both[env.both$sampleyear=="2014",]
 
-# create hem data
 hem.both<-hem[rownames(hem)%in%env.both$vialID,]
+hem.both.kaio<-hem[rownames(hem)%in%env.both.kaio$vialID,]
 hem.2014<-hem[rownames(hem)%in%env.2014$vialID,]
 
-## Create traits data 
-#traits.both<-traits[rownames(traits)%in%colnames(hem.both),]
+# Subset leaftraits to include only sites in hybrid zone:
+leaftraits<-leaftraits[leaftraits$vialID%in%env.both$vialID,]
+
+
+##############
+
+
+# generate data for nmds plots
+env<-env[order(env$vialID),]
+hem<-hem[order(as.numeric(rownames(hem))),]
+
+hem.ero<-hem[env$site=="ERO",]
+hem.ali<-hem[env$site=="ALI",]
+hem.kaiy<-hem[env$site=="KAIY",]
+hem.olaa<-hem[env$site=="OLAA",]
+
+
+##############
+
+
+# subset traits to only include traits for hem species present at hybrid zone sites
 traits<-traits[traits$spec.code%in%colnames(hem.2014),]
 
-## Create leaftraits data (2014 only)
-leaftraits<-leaftraits[leaftraits$vialID%in%env.2014$vialID,]
+
+hem.2014<-hem.2014[,colnames(hem.2014)%in%traits$spec.code]
+hem.both<-hem.both[,colnames(hem.both)%in%traits$spec.code]
+hem.both.kaio<-hem.both.kaio[,colnames(hem.both.kaio)%in%traits$spec.code]
 
 
 # exclude species that don't occur in our four sites
 hem.both<-hem.both[,colSums(hem.both)>0]
 hem.2014<-hem.2014[,colSums(hem.2014)>0]
+##############
+```
 
-# remove predators
-traits<- traits[traits$spec.code!="NAB_OSC",]
-traits<- traits[traits$spec.code!="COC_SP",]
-traits<- traits[traits$spec.code!="PHI_SPU",]
-#traits.both<-traits[traits$spec_code%in%colnames(hem.both),]    ### only need to do this for 2014 data? because used for fourth corner mostly?
 
-# exclude species for which we don't have trait data. 
-hem.both<-hem.both[ ,which( colnames(hem.both) %in% traits$spec.code )]
-hem.2014<-hem.2014[ ,which( colnames(hem.2014) %in% traits$spec.code )]
+```{r}
+par(mfrow=c(2,2))
 
-traits<-traits[traits$spec.code%in%colnames(hem.2014),]
-rownames(traits)<-traits$spec.code
-traits<-traits[,-c(1)]
+moment<-metaMDS(hem.ero, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Escape road old flow")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="ERO",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="ERO",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="ERO",]$morphotype == "P")
 
-## There are NA's in the dataset. Remove.
-leaftraits<-na.omit(leaftraits)
-
-#select subset traits to prevent collinearity
-leaftraits<-merge(leaftraits, env[,c(1,10)], by="vialID")
-rownames(leaftraits)<-leaftraits$vialID
-leaftraits<-leaftraits[,c(3,4,6,7,10,11)]
-colnames(leaftraits)<-c("percN", "percP", "meanSLA", "meanWatercontent", "CN", "morphotype")
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
 
 
 
+moment<-metaMDS(hem.kaiy, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Kaiholena Young flow")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="KAIY",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="KAIY",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="KAIY",]$morphotype == "P")
 
-# set different level of morphotype as intercept
-leaftraits$morphotype<-factor(leaftraits$morphotype, levels=c("H", "G", "P"))
-
-
-
-hem.both <- hem.both[ order(as.numeric(row.names(hem.both))), ]
-
-#env<-env[env$vialID %in% rownames(hem),]
-#env$morphotype<-factor(env$morphotype,levels(env$morphotype))
-
-################
-#  make frequency matrix of species by site; ie instead of absolute numbers put in numbers proportionate to total site abundance. 
-# prob with frequency is gives diff picture from fourth corner absolute numbers
-
-#hem.freq<-hem.new/rowSums(hem.new)
-#rownames(hem.freq)<-rownames(hem.new)
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
 
 
-################
 
-#hem.ero<-hem[env$site=="ERO",]
-#hem.kaiy<-hem[env$site=="KAIY",]
-#hem.olaa<-hem[env$site=="OLAA",]
-#hem.ali<-hem[env$site=="ALI",]
+moment<-metaMDS(hem.ali, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="Alili Springs")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="ALI",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="ALI",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="ALI",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
 
 
-##################
+
+
+moment<-metaMDS(hem.olaa, k=3)
+mds.fig <- ordiplot(moment, type = "none", main="HAVO Olaa")
+text(mds.fig, "species")
+points(mds.fig, "sites", pch = 19, col = "green", select = env[env$site=="OLAA",]$morphotype == "G")
+points(mds.fig, "sites", pch = 19, col = "blue", select = env[env$site=="OLAA",]$morphotype == "H")
+points(mds.fig, "sites", pch = 19, col = "red", select = env[env$site=="OLAA",]$morphotype == "P")
+
+Lab<-c("G", "H", "P")
+color<-c("green", "blue", "red")
+legend(  "topright", legend=Lab,pch=c(22),pt.bg=c(color),pt.cex=1.1,cex=0.9,xpd=TRUE)
+
+
+
+
+adonis(hem.ali~env[env$site=="ALI",]$morphotype, by="margin")
+adonis(hem.kaiy~env[env$site=="KAIY",]$morphotype, by="margin")
+adonis(hem.ero~env[env$site=="ERO",]$morphotype, by="margin")
+adonis(hem.olaa~env[env$site=="OLAA",]$morphotype, by="margin")
+
+
 
 ```
 <br>
@@ -171,19 +218,6 @@ plot(1/(1-ChaoSimpson(as.data.frame(t(hem.both)), datatype = "abundance")[,2])~f
 #### (i) How do herbivore communities respond to phenotypic variation?
 
 <br>
-
-```{r}
-
-p<-metaMDS(hem.both, distance="bray", k=2, trymax=100)
-ordiplot(p,type="n")
-orditorp(p,display="species",col="red",air=0.01)
-orditorp(p,display="sites",cex=1.25,air=0.01)
-
-ordiplot(p,type="n")
-orditorp(p,display="species",col="red",air=0.01)
-orditorp(p,display="sites",pch=19, col="blue", label=F)
-ordiellipse(p,groups=env.both$morphotype,draw="polygon",col="grey90",label=T)
-```
 <br>
 
 There are differences in species richness as well as species composition across sites. Diversity is highest at the high productivity sites midway the Big Island chronosequence. Species composition varies between sites, though many species are shared in common.  
@@ -561,12 +595,6 @@ Are communities distinctly different between different morphotype trees within t
 <br>
 
 ```{r}
-hem.ero<-hem[env$site=="ERO",]
-hem.ali<-hem[env$site=="ALI",]
-hem.kaiy<-hem[env$site=="KAIY",]
-hem.olaa<-hem[env$site=="OLAA",]
-
-
 par(mfrow=c(2,2))
 
 moment<-metaMDS(hem.ero, k=3)
